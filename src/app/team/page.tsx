@@ -1,5 +1,5 @@
-import Container from "@/src/components/container";
-import PageHeader from "@/src/components/page-header";
+import Container from "@/components/container";
+import PageHeader from "@/components/page-header";
 
 export default function TeamPage() {
   const team = [
@@ -22,3 +22,4 @@ export default function TeamPage() {
     </Container>
   );
 }
+
