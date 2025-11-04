@@ -1,6 +1,6 @@
-import Container from "@/src/components/container";
-import PageHeader from "@/src/components/page-header";
-import ProductCard from "@/src/components/product-card";
+import Container from "@/components/container";
+import PageHeader from "@/components/page-header";
+import ProductCard from "@/components/product-card";
 
 export default function ProductsPage() {
   const products = [
