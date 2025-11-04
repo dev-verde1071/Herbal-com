@@ -2,16 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 🌿 Herbal Communities Theme Colors */
 :root {
   --color-bg: #FCF9F2;
   --color-primary: #3E9E59;
   --color-accent: #BFA870;
 }
 
+/* Base styling */
 body {
-  @apply bg-[var(--color-bg)] text-[#1A1A1A];
+  @apply bg-[var(--color-bg)] text-[#1A1A1A] font-sans;
 }
 
+/* Header and Footer */
 header {
   @apply bg-brand-50 text-leaf-700 border-b border-brand-200;
 }
@@ -20,6 +23,7 @@ footer {
   @apply bg-brand-100 text-leaf-700 border-t border-brand-200;
 }
 
+/* Buttons */
 .btn-primary {
   @apply bg-[var(--color-primary)] text-white hover:bg-leaf-600 transition;
 }
@@ -28,6 +32,23 @@ footer {
   @apply bg-[var(--color-accent)] text-white hover:bg-brand-600 transition;
 }
 
+/* Card component */
 .card {
   @apply bg-white border border-brand-100 shadow-sm rounded-xl;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
 }
