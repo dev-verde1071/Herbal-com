@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --color-bg: #FCF9F2;        /* cream */
-  --color-primary: #3E9E59;   /* leaf */
-  --color-accent: #BFA870;    /* light brown */
+  --color-bg: #FCF9F2;
+  --color-primary: #3E9E59;
+  --color-accent: #BFA870;
 }
 
 body {
@@ -29,22 +29,5 @@ footer {
 }
 
 .card {
-  @apply bg-white border border-brand-100 shadow-sm;
-}
-
-a {
-  @apply text-leaf-700 hover:text-leaf-500 transition;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  @apply text-leaf-800;
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-out forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  @apply bg-white border border-brand-100 shadow-sm rounded-xl;
 }
