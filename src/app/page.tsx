@@ -1,4 +1,4 @@
-import Container from "@/src/components/container";
+import Container from "@/components/container";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -20,16 +20,6 @@ export default function HomePage() {
             View Retreats
           </Link>
         </div>
-      </section>
-
-      <section className="mt-16 text-center">
-        <h2 className="text-2xl font-semibold text-leaf-600 mb-2">
-          Experience Nature’s Finest
-        </h2>
-        <p className="text-brand-700 max-w-xl mx-auto">
-          From handcrafted herbal blends to immersive wellness tours, Herbal
-          Communities connects you to the natural world in every way.
-        </p>
       </section>
     </Container>
   );
