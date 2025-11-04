@@ -1,6 +1,6 @@
-import Container from "@/src/components/container";
-import PageHeader from "@/src/components/page-header";
-import ReviewCard from "@/src/components/review-card";
+import Container from "@/components/container";
+import PageHeader from "@/components/page-header";
+import ReviewCard from "@/components/review-card";
 
 export default function ReviewsPage() {
   const reviews = [
