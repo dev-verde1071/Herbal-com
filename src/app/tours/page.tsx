@@ -1,6 +1,6 @@
-import Container from "@/src/components/container";
-import PageHeader from "@/src/components/page-header";
-import TourCard from "@/src/components/tour-card";
+import Container from "@/components/container";
+import PageHeader from "@/components/page-header";
+import TourCard from "@/components/tour-card";
 
 export default function ToursPage() {
   const tours = [
