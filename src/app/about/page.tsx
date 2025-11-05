@@ -4,14 +4,27 @@ import PageHeader from "@/components/page-header";
 export default function AboutPage() {
   return (
     <Container>
-      <PageHeader title="About Us" subtitle="Rooted in nature, driven by wellness." />
-      <p className="text-brand-800 leading-relaxed">
-        Herbal Communities was founded on the belief that the earth provides
-        everything we need to thrive. Our mission is to empower individuals
-        through herbal knowledge, natural remedies, and mindful experiences.
-        From handcrafted products to immersive retreats, we are cultivating a
-        global community focused on holistic living.
-      </p>
+      <PageHeader
+        title="About Herbal Communities"
+        subtitle="Rooted in nature. United by wellness."
+      />
+      <div className="space-y-6 text-brand-800">
+        <p>
+          Herbal Communities was founded with one mission — to reconnect people with the
+          healing power of the earth. Our products and retreats are designed to promote
+          balance, mindfulness, and long-term wellness through natural ingredients and
+          holistic practices.
+        </p>
+        <p>
+          From hand-harvested herbs to eco-friendly packaging, every step we take honors the
+          planet that sustains us. We believe in transparency, community, and nurturing the
+          bond between people and nature.
+        </p>
+        <p>
+          Our team includes herbalists, farmers, nutritionists, and wellness guides dedicated
+          to empowering individuals to live healthier, more grounded lives.
+        </p>
+      </div>
     </Container>
   );
 }
