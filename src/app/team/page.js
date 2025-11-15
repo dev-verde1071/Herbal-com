@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Instagram } from "lucide-react";
 
 export default function Team() {
   return (
@@ -18,15 +19,37 @@ export default function Team() {
               className="object-cover"
             />
           </div>
+
           <h3 className="text-lg font-semibold">Thomas Scott</h3>
-          <p className="text-sm">Founder, Herbalist, & Medicine Man</p>
+          <p className="text-sm mb-3">Founder, Herbalist, & Medicine Man</p>
+
+          <div className="flex justify-center text-leaf-600">
+            <a 
+              href="https://instagram.com/PLACEHOLDER"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Instagram size={20} />
+            </a>
+          </div>
         </div>
 
-        {/* Aaron (still placeholder unless you want his image too) */}
+        {/* Aaron */}
         <div className="bg-white p-6 rounded shadow text-center">
           <div className="w-24 h-24 bg-leaf-50 rounded-full mx-auto mb-4" />
+
           <h3 className="text-lg font-semibold">Aaron Bloom</h3>
-          <p className="text-sm">Logistics Director</p>
+          <p className="text-sm mb-3">Logistics Director</p>
+
+          <div className="flex justify-center text-leaf-600">
+            <a 
+              href="https://instagram.com/changingthegame"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Instagram size={20} />
+            </a>
+          </div>
         </div>
 
         {/* Luke */}
@@ -40,11 +63,22 @@ export default function Team() {
               className="object-cover"
             />
           </div>
+
           <h3 className="text-lg font-semibold">Luke DeYesso</h3>
-          <p className="text-sm">Web Developer</p>
+          <p className="text-sm mb-3">Web Developer</p>
+
+          <div className="flex justify-center text-leaf-600">
+            <a 
+              href="https://instagram.com/loliverde99"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Instagram size={20} />
+            </a>
+          </div>
         </div>
+
       </div>
     </section>
   );
 }
-
