@@ -13,9 +13,9 @@ export default function Header() {
         <Link href="/team" className="hover:underline">Team</Link>
 
         <div className="flex items-center gap-4 ml-4">
-          <a href="#" target="_blank"><Instagram size={20} /></a>
-          <a href="#" target="_blank"><Facebook size={20} /></a>
-          <a href="#" target="_blank"><Send size={20} /></a>
+          <a href="#" target="https://www.instagram.com/herbcom_/"><Instagram size={20} /></a>
+          <a href="#" target="https://www.facebook.com/bigsosaOT"><Facebook size={20} /></a>
+          <a href="#" target="https://t.me/c/2102817925/2"><Send size={20} /></a>
         </div>
       </nav>
     </header>
