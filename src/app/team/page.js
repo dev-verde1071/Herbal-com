@@ -7,19 +7,19 @@ export default function Team() {
         <div className="bg-white p-6 rounded shadow text-center">
           <div className="w-24 h-24 bg-leaf-50 rounded-full mx-auto mb-4" />
           <h3 className="text-lg font-semibold">Thomas Scott</h3>
-          <p className="text-sm">Founder & Herbalist</p>
+          <p className="text-sm">Founder, Herbalist, & Medicine Man</p>
         </div>
 
         <div className="bg-white p-6 rounded shadow text-center">
           <div className="w-24 h-24 bg-leaf-50 rounded-full mx-auto mb-4" />
           <h3 className="text-lg font-semibold">Aaron Bloom</h3>
-          <p className="text-sm">Operations Director</p>
+          <p className="text-sm">Logistics Director</p>
         </div>
 
         <div className="bg-white p-6 rounded shadow text-center">
           <div className="w-24 h-24 bg-leaf-50 rounded-full mx-auto mb-4" />
           <h3 className="text-lg font-semibold">Luke DeYesso</h3>
-          <p className="text-sm">Lead Web Developer</p>
+          <p className="text-sm">Web Developer</p>
         </div>
       </div>
     </section>
