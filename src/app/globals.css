@@ -2,17 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
+/* =============================== */
+/* HEADER LAYOUT */
+/* =============================== */
+
+header {
+  @apply bg-leaf-500 text-white py-4 px-6 flex justify-between items-center;
 }
 
 .header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  @apply flex items-center gap-3;
 }
 
 .header-logo {
@@ -20,10 +19,28 @@
 }
 
 .header-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #2f3e2f; /* earth green tone */
+  @apply text-xl font-bold;
 }
+
+/* =============================== */
+/* SOCIAL ICONS */
+/* =============================== */
+
+.header-socials {
+  @apply flex items-center gap-4 ml-4;
+}
+
+.header-socials svg {
+  @apply opacity-90 transition duration-200 ease-in-out;
+}
+
+.header-socials svg:hover {
+  @apply opacity-100 scale-105;
+}
+
+/* =============================== */
+/* BASE STYLING */
+/* =============================== */
 
 body {
   @apply bg-brand-50 text-brand-700;
