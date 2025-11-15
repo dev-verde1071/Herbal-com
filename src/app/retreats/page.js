@@ -1,7 +1,9 @@
 async function getRetreats() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/retreats`, {
-    next: { revalidate: 0 },
-  });
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SITE_URL}/api/retreats`,
+    { next: { revalidate: 0 } }
+  );
+
   return res.json();
 }
 
@@ -17,22 +19,37 @@ export default async function RetreatsPage() {
         </p>
       </div>
 
-      <div className="space-y-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
         {retreats.map((retreat) => (
           <div key={retreat.id} className="bg-white p-6 rounded shadow">
+            
+            {/* IMAGE */}
+            {retreat.images?.length > 0 ? (
+              <img
+                src={retreat.images[0]}
+                alt={retreat.name}
+                className="w-full h-52 object-cover rounded mb-4"
+              />
+            ) : (
+              <div className="w-full h-52 bg-leaf-100 rounded mb-4"></div>
+            )}
+
+            {/* NAME */}
             <h2 className="text-2xl font-semibold text-leaf-600">
               {retreat.name}
             </h2>
 
+            {/* DESCRIPTION (Stripe description or metadata long_description) */}
             <p className="mt-2 text-gray-700">
-              {retreat.metadata?.long_description ||
+              {retreat.description ||
+                retreat.metadata?.long_description ||
                 "No description provided."}
             </p>
 
-            {/* Price */}
+            {/* PRICE */}
             {retreat.default_price && (
-              <p className="mt-2 font-bold text-leaf-600">
+              <p className="mt-3 font-bold text-leaf-600">
                 ${(retreat.default_price.unit_amount / 100).toFixed(2)}
               </p>
             )}
