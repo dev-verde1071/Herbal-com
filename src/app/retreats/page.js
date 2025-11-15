@@ -1,61 +1,43 @@
-export default function Retreats() {
+async function getRetreats() {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/retreats`, {
+    next: { revalidate: 0 },
+  });
+  return res.json();
+}
+
+export default async function RetreatsPage() {
+  const { retreats } = await getRetreats();
+
   return (
     <section className="max-w-4xl mx-auto space-y-12">
-      {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-leaf-600">Healing Retreats</h1>
         <p className="text-brand-700 mt-2">
-          Transformative experiences in nature guided by holistic practitioners.
+          Transformative, nature-centered retreats to restore your mind and body.
         </p>
       </div>
 
-      {/* Retreat Sections */}
       <div className="space-y-10">
 
-        {/* RETREAT 1 */}
-        <div className="bg-white p-6 rounded shadow">
-          <h2 className="text-2xl font-semibold text-leaf-600">
-            Mountain Herbal Healing Retreat
-          </h2>
-          <p className="mt-2 text-gray-700">
-            A 3-day immersive retreat in the mountains, blending meditation,
-            herbal workshops, nature walks, and detox rituals.
-          </p>
+        {retreats.map((retreat) => (
+          <div key={retreat.id} className="bg-white p-6 rounded shadow">
+            <h2 className="text-2xl font-semibold text-leaf-600">
+              {retreat.name}
+            </h2>
 
-          <button className="mt-4 px-4 py-2 bg-leaf-500 text-white rounded hover:bg-leaf-600">
-            Learn More
-          </button>
-        </div>
+            <p className="mt-2 text-gray-700">
+              {retreat.metadata?.long_description ||
+                "No description provided."}
+            </p>
 
-        {/* RETREAT 2 */}
-        <div className="bg-white p-6 rounded shadow">
-          <h2 className="text-2xl font-semibold text-leaf-600">
-            Sacred Plant Medicine Weekend
-          </h2>
-          <p className="mt-2 text-gray-700">
-            Explore the ancient traditions of plant medicine in a safe guided environment.
-            Includes ceremony, integration sessions, and grounding practices.
-          </p>
-
-          <button className="mt-4 px-4 py-2 bg-leaf-500 text-white rounded hover:bg-leaf-600">
-            Learn More
-          </button>
-        </div>
-
-        {/* RETREAT 3 */}
-        <div className="bg-white p-6 rounded shadow">
-          <h2 className="text-2xl font-semibold text-leaf-600">
-            Coastal Wellness Reset Retreat
-          </h2>
-          <p className="mt-2 text-gray-700">
-            A calming oceanside retreat focused on herbal detox, breathwork,
-            ocean meditation, and full-body recovery.
-          </p>
-
-          <button className="mt-4 px-4 py-2 bg-leaf-500 text-white rounded hover:bg-leaf-600">
-            Learn More
-          </button>
-        </div>
+            {/* Price */}
+            {retreat.default_price && (
+              <p className="mt-2 font-bold text-leaf-600">
+                ${(retreat.default_price.unit_amount / 100).toFixed(2)}
+              </p>
+            )}
+          </div>
+        ))}
 
       </div>
     </section>
