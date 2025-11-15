@@ -1,10 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { Instagram, Facebook, Send } from "lucide-react";
+import { Instagram, Facebook, Send, ChevronDown } from "lucide-react";
+import { useState } from "react";
 
 export default function Header() {
+  const [open, setOpen] = useState(false);
+
   return (
-    <header className="bg-leaf-500 text-white py-4 px-6 flex justify-between items-center">
+    <header className="bg-leaf-500 text-white py-4 px-6 flex justify-between items-center relative">
       {/* Left side: Logo + Title */}
       <div className="flex items-center gap-3">
         <Image
@@ -23,6 +28,38 @@ export default function Header() {
         <Link href="/mission" className="hover:underline">Mission</Link>
         <Link href="/about" className="hover:underline">About</Link>
         <Link href="/team" className="hover:underline">Team</Link>
+
+        {/* ============================= */}
+        {/*         SHOP DROPDOWN         */}
+        {/* ============================= */}
+        <div className="relative">
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex items-center gap-1 hover:underline font-semibold"
+          >
+            Shop <ChevronDown size={18} />
+          </button>
+
+          {open && (
+            <div className="absolute right-0 mt-2 bg-white text-black rounded shadow-md w-40 z-50">
+              <Link
+                href="/products"
+                className="block px-4 py-2 hover:bg-gray-200"
+                onClick={() => setOpen(false)}
+              >
+                Products
+              </Link>
+
+              <Link
+                href="/retreats"
+                className="block px-4 py-2 hover:bg-gray-200"
+                onClick={() => setOpen(false)}
+              >
+                Retreats
+              </Link>
+            </div>
+          )}
+        </div>
 
         {/* Social Icons */}
         <div className="flex items-center gap-4 ml-4">
