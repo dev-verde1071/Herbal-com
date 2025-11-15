@@ -43,7 +43,7 @@ export default function Team() {
 
           <div className="flex justify-center text-leaf-600">
             <a 
-              href="https://instagram.com/changingthegame"
+              href="https://instagram.com/placeholder_"
               target="_blank"
               rel="noopener noreferrer"
             >
