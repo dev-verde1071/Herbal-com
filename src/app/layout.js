@@ -4,7 +4,7 @@ import Footer from "@/components/footer";
 
 export const metadata = {
   title: "Herbal Communities",
-  description: "Natural wellness through herbs, community, and holistic healing."
+  description: "Natural wellness through herbs and community."
 };
 
 export default function RootLayout({ children }) {
