@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-logo {
+  border-radius: 50%;
+}
+
+.header-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2f3e2f; /* earth green tone */
+}
+
 body {
   @apply bg-brand-50 text-brand-700;
 }
