@@ -5,6 +5,11 @@ import Footer from "@/components/footer";
 export const metadata = {
   title: "Herbal Communities",
   description: "Natural wellness through herbs and community."
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-32x32.png",
+    apple: "/favicon-192x192.png",
+  }
 };
 
 export default function RootLayout({ children }) {
