@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-cream text-sand-700 antialiased;
+}
+
+@layer components {
+  .site-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .section-spacing {
+    @apply py-14 sm:py-16 lg:py-20;
+  }
+
+  .card {
+    @apply rounded-2xl border border-sand-100 bg-white shadow-soft;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full bg-leaf-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-leaf-700;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full border border-sand-300 bg-white px-5 py-3 text-sm font-semibold text-sand-700 transition hover:bg-sand-50;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.22em] text-leaf-600;
+  }
+
+  .section-title {
+    @apply mt-3 text-3xl font-semibold leading-tight text-leaf-700 sm:text-4xl lg:text-5xl;
+  }
+
+  .section-copy {
+    @apply mt-4 max-w-3xl text-base leading-7 text-sand-700 sm:text-lg;
+  }
+
+  .nav-link {
+    @apply text-sm font-medium text-sand-700 transition hover:text-leaf-700;
+  }
+
+  .mobile-nav-link {
+    @apply block rounded-xl px-3 py-3 text-base font-medium text-sand-700 transition hover:bg-sand-50 hover:text-leaf-700;
+  }
+}
