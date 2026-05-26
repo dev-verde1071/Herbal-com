@@ -1,0 +1,55 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { resend, FROM_EMAIL } from "@/lib/resend";
+import WholesaleReceived from "@/emails/WholesaleReceived";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    const { name, business, email, phone, message } = body;
+
+    if (!name || !business || !email || !phone) {
+      return NextResponse.json(
+        { error: "Missing required fields." },
+        { status: 400 }
+      );
+    }
+
+    const application = await db.wholesaleApplication.create({
+      data: {
+        name,
+        business,
+        email,
+        phone,
+        message,
+      },
+    });
+
+    try {
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: process.env.RESEND_FROM_EMAIL || FROM_EMAIL,
+        subject: "New Wholesale Application",
+        react: WholesaleReceived({
+          name,
+          businessName: business,
+          email,
+          phone,
+          message,
+        }),
+      });
+    } catch (emailError) {
+      console.error("Wholesale email error:", emailError);
+    }
+
+    return NextResponse.json({ success: true, application });
+  } catch (error) {
+    console.error("Wholesale API error:", error);
+
+    return NextResponse.json(
+      { error: "Failed to submit wholesale application." },
+      { status: 500 }
+    );
+  }
+}
