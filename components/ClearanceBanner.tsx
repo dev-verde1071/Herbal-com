@@ -1,6 +1,6 @@
 "use client";
 
-const BANNER_SPEED_SECONDS = 90; // higher = slower, lower = faster
+const BANNER_SPEED_SECONDS = 75; // higher = slower, lower = faster
 
 export default function ClearanceBanner() {
   return (
