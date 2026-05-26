@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  role      Role     @default(RETAIL)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wholesaleApplication WholesaleApplication?
+  orders               Order[]
+}
+
+enum Role {
+  ADMIN
+  WHOLESALE
+  RETAIL
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  description String?     @db.Text
+  sku         String?     @unique
+  category    String
+  subcategory String?
+  type        ProductType @default(RETAIL)
+  images      String[]
+  active      Boolean     @default(true)
+  featured    Boolean     @default(false)
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+}
+
+enum ProductType {
+  RETAIL
+  WHOLESALE
+  BOTH
+}
+
+model ProductVariant {
+  id            String   @id @default(cuid())
+  productId     String
+  label         String
+  price         Float
+  compareAt     Float?
+  sku           String?
+  qty           Int      @default(0)
+  inStock       Boolean  @default(true)
+  stripePriceId String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+}
+
+model Retreat {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?   @db.Text
+  location    String?
+  country     String?
+  duration    String?
+  price       Float
+  spots       Int       @default(0)
+  spotsLeft   Int       @default(0)
+  inStock     Boolean   @default(true)
+  images      String[]
+  featured    Boolean   @default(false)
+  startDate   DateTime?
+  endDate     DateTime?
+  includes    String[]
+  metadata    Json?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  orderItems OrderItem[]
+}
+
+model WholesaleApplication {
+  id        String            @id @default(cuid())
+  userId    String?           @unique
+  name      String
+  business  String
+  email     String
+  phone     String
+  message   String?           @db.Text
+  status    ApplicationStatus @default(PENDING)
+  adminNote String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  text      String
+  active    Boolean  @default(true)
+  color     String   @default("#c89f4f")
+  bgColor   String   @default("#1a3a22")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String?
+  stripeSessionId String?     @unique
+  status          OrderStatus @default(PENDING)
+  total           Float
+  currency        String      @default("usd")
+  email           String?
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user  User?       @relation(fields: [userId], references: [id])
+  items OrderItem[]
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FULFILLED
+  CANCELLED
+  REFUNDED
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String?
+  variantId String?
+  retreatId String?
+  name      String
+  price     Float
+  qty       Int      @default(1)
+  image     String?
+
+  order   Order           @relation(fields: [orderId], references: [id])
+  product Product?        @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+  retreat Retreat?        @relation(fields: [retreatId], references: [id])
+}
