@@ -11,90 +11,50 @@ export async function GET() {
     });
 
     return NextResponse.json(banner);
-  } catch (error) {
-    console.error("Banner GET error:", error);
-
-    return NextResponse.json(
-      { error: "Failed to fetch banner." },
-      { status: 500 }
-    );
+  } catch {
+    return NextResponse.json(null);
   }
 }
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const body = await req.json();
+  const body = await req.json();
 
-    const {
-      text,
-      active,
-      color,
-      bgColor,
-    } = body;
+  const banner = await db.banner.create({
+    data: {
+      text: body.text || "Welcome to Herbal Communities",
+      active: body.active ?? true,
+      color: body.color || "#c89f4f",
+      bgColor: body.bgColor || "#1a3a22",
+      emoji: body.emoji || "🌿",
+      speedSeconds: Number(body.speedSeconds || 90),
+    },
+  });
 
-    const banner = await db.banner.create({
-      data: {
-        text,
-        active: active ?? true,
-        color: color || "#c89f4f",
-        bgColor: bgColor || "#1a3a22",
-      },
-    });
-
-    return NextResponse.json(banner);
-  } catch (error) {
-    console.error("Banner POST error:", error);
-
-    return NextResponse.json(
-      { error: "Failed to create banner." },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(banner);
 }
 
 export async function PUT(req: Request) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const body = await req.json();
+  const body = await req.json();
 
-    const {
-      id,
-      text,
-      active,
-      color,
-      bgColor,
-    } = body;
+  const banner = await db.banner.update({
+    where: { id: body.id },
+    data: {
+      text: body.text,
+      active: body.active,
+      color: body.color,
+      bgColor: body.bgColor,
+      emoji: body.emoji || "🌿",
+      speedSeconds: Number(body.speedSeconds || 90),
+    },
+  });
 
-    const banner = await db.banner.update({
-      where: { id },
-      data: {
-        text,
-        active,
-        color,
-        bgColor,
-      },
-    });
-
-    return NextResponse.json(banner);
-  } catch (error) {
-    console.error("Banner PUT error:", error);
-
-    return NextResponse.json(
-      { error: "Failed to update banner." },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(banner);
 }
