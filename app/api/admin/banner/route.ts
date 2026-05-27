@@ -5,9 +5,7 @@ import { isAdmin } from "@/lib/auth";
 export async function GET() {
   try {
     const banner = await db.banner.findFirst({
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json(banner);
