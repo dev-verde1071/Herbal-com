@@ -85,6 +85,7 @@ export default function BannerManager({ banner }: { banner: Banner | null }) {
         <label className="block text-sm text-zinc-300 mb-2">
           Banner Speed: {form.speedSeconds}s
         </label>
+
         <input
           type="range"
           min="20"
@@ -94,10 +95,14 @@ export default function BannerManager({ banner }: { banner: Banner | null }) {
           onChange={(e) =>
             setForm({ ...form, speedSeconds: Number(e.target.value) })
           }
+          className="w-full"
         />
-        <p className="text-xs text-zinc-500 mt-2">
-          Higher number = slower banner. Recommended: 90–120.
-        </p>
+
+        <div className="flex justify-between text-xs text-zinc-500 mt-2">
+          <span>Fast</span>
+          <span>Recommended: 90–120</span>
+          <span>Slow</span>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
