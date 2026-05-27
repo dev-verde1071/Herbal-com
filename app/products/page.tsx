@@ -1,4 +1,5 @@
-import { Suspense } from "react";
+
+export const dynamic = "force-dynamic";import { Suspense } from "react";
 import { db } from "@/lib/db";
 import ProductCard from "@/components/ProductCard";
 import ProductSidebar from "@/components/ProductSidebar";
