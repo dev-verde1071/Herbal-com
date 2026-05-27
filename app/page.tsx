@@ -1,7 +1,40 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { ArrowRight, Leaf, Waves, Sparkles } from "lucide-react";
+import { db } from "@/lib/db";
+import ProductCard from "@/components/ProductCard";
 
-export default function HomePage() {
+async function getFeaturedProducts() {
+  try {
+    return await db.product.findMany({
+      where: {
+        active: true,
+        featured: true,
+        type: {
+          in: ["RETAIL", "BOTH"],
+        },
+      },
+      include: {
+        variants: {
+          orderBy: {
+            price: "asc",
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 6,
+    });
+  } catch {
+    return [];
+  }
+}
+
+export default async function HomePage() {
+  const featuredProducts = await getFeaturedProducts();
+
   return (
     <div className="overflow-hidden">
       <section className="relative min-h-[90vh] flex items-center justify-center px-6">
@@ -86,6 +119,36 @@ export default function HomePage() {
             </p>
           </div>
         </div>
+
+        {featuredProducts.length > 0 && (
+          <div className="max-w-7xl mx-auto mt-20">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+              <div>
+                <p className="uppercase tracking-[0.3em] text-jungle-300 text-xs mb-4">
+                  Featured Products
+                </p>
+
+                <h2 className="font-display text-4xl md:text-5xl">
+                  Featured on Herbal Communities
+                </h2>
+              </div>
+
+              <Link
+                href="/products"
+                className="inline-flex items-center gap-2 text-jungle-300 hover:text-white transition font-semibold"
+              >
+                View all products
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="py-24 px-6 border-t border-jungle-800/40">
