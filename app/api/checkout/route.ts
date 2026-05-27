@@ -2,6 +2,27 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 
+const STANDARD_SHIPPING = {
+  shipping_rate_data: {
+    type: "fixed_amount" as const,
+    fixed_amount: {
+      amount: 800,
+      currency: "usd",
+    },
+    display_name: "Standard Shipping",
+    delivery_estimate: {
+      minimum: {
+        unit: "business_day" as const,
+        value: 3,
+      },
+      maximum: {
+        unit: "business_day" as const,
+        value: 7,
+      },
+    },
+  },
+};
+
 export async function POST(req: Request) {
   try {
     if (!stripe) {
@@ -64,6 +85,10 @@ export async function POST(req: Request) {
         success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}/cart`,
         customer_creation: "always",
+        shipping_address_collection: {
+          allowed_countries: ["US"],
+        },
+        shipping_options: [STANDARD_SHIPPING],
         line_items: lineItems,
         metadata: {
           type: "cart",
@@ -91,6 +116,10 @@ export async function POST(req: Request) {
         success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}/products/${variant.product.slug}`,
         customer_creation: "always",
+        shipping_address_collection: {
+          allowed_countries: ["US"],
+        },
+        shipping_options: [STANDARD_SHIPPING],
         line_items: [
           {
             price_data: {
