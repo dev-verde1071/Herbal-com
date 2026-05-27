@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -12,7 +14,11 @@ export default async function AdminProductsPage() {
 
   const products = await db.product.findMany({
     include: {
-      variants: true,
+      variants: {
+        orderBy: {
+          price: "asc",
+        },
+      },
     },
     orderBy: {
       createdAt: "desc",
@@ -30,6 +36,10 @@ export default async function AdminProductsPage() {
           <h1 className="font-display text-5xl">
             Products
           </h1>
+
+          <p className="text-zinc-400 mt-3">
+            {products.length} product{products.length === 1 ? "" : "s"} found.
+          </p>
         </div>
 
         <AdminProductList products={products} />
