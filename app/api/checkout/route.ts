@@ -52,6 +52,11 @@ export async function POST(req: Request) {
         },
       });
 
+      const cartMetadata = items.map((item: any) => ({
+        variantId: item.variantId,
+        qty: Math.max(1, Number(item.qty || 1)),
+      }));
+
       const lineItems = items.map((item: any) => {
         const variant = variants.find((v) => v.id === item.variantId);
 
@@ -92,6 +97,7 @@ export async function POST(req: Request) {
         line_items: lineItems,
         metadata: {
           type: "cart",
+          cart: JSON.stringify(cartMetadata).slice(0, 450),
         },
       });
 
