@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { resend, FROM_EMAIL } from "@/lib/resend";
+import {
+  resend,
+  FROM_EMAIL,
+  ADMIN_NOTIFICATION_EMAIL,
+} from "@/lib/resend";
 import WholesaleReceived from "@/emails/WholesaleReceived";
+import WholesaleApplicationConfirmation from "@/emails/WholesaleApplicationConfirmation";
 
 export async function POST(req: Request) {
   try {
@@ -26,21 +31,35 @@ export async function POST(req: Request) {
       },
     });
 
-    try {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: process.env.RESEND_FROM_EMAIL || FROM_EMAIL,
-        subject: "New Wholesale Application",
-        react: WholesaleReceived({
-          name,
-          businessName: business,
-          email,
-          phone,
-          message,
-        }),
-      });
-    } catch (emailError) {
-      console.error("Wholesale email error:", emailError);
+    if (resend) {
+      try {
+        if (ADMIN_NOTIFICATION_EMAIL) {
+          await resend.emails.send({
+            from: FROM_EMAIL,
+            to: ADMIN_NOTIFICATION_EMAIL,
+            subject: "New Wholesale Application - Herbal Communities",
+            react: WholesaleReceived({
+              name,
+              businessName: business,
+              email,
+              phone,
+              message,
+            }),
+          });
+        }
+
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: email,
+          subject: "Wholesale Application Received - Herbal Communities",
+          react: WholesaleApplicationConfirmation({
+            name,
+            businessName: business,
+          }),
+        });
+      } catch (emailError) {
+        console.error("Wholesale email error:", emailError);
+      }
     }
 
     return NextResponse.json({ success: true, application });
