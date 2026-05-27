@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -27,6 +29,11 @@ export default async function AdminWholesalePage() {
           <h1 className="font-display text-5xl">
             Wholesale Applications
           </h1>
+
+          <p className="text-zinc-400 mt-3">
+            {applications.length} application
+            {applications.length === 1 ? "" : "s"} found.
+          </p>
         </div>
 
         <WholesaleApplicationManager applications={applications} />
