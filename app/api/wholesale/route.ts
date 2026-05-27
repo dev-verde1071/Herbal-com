@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import {
-  resend,
-  FROM_EMAIL,
-  ADMIN_NOTIFICATION_EMAIL,
-} from "@/lib/resend";
+import { resend, FROM_EMAIL, ADMIN_NOTIFICATION_EMAIL } from "@/lib/resend";
 import WholesaleReceived from "@/emails/WholesaleReceived";
 import WholesaleApplicationConfirmation from "@/emails/WholesaleApplicationConfirmation";
 
@@ -12,11 +8,15 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const { name, business, email, phone, message } = body;
+    const name = String(body.name || "").trim();
+    const business = String(body.business || "").trim();
+    const email = String(body.email || "").trim();
+    const phone = String(body.phone || "").trim();
+    const message = String(body.message || "").trim();
 
     if (!name || !business || !email || !phone) {
       return NextResponse.json(
-        { error: "Missing required fields." },
+        { error: "Name, business, email, and phone are required." },
         { status: 400 }
       );
     }
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
         email,
         phone,
         message,
+        status: "PENDING",
       },
     });
 
