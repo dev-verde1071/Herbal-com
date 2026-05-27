@@ -118,13 +118,15 @@ enum ApplicationStatus {
 }
 
 model Banner {
-  id        String   @id @default(cuid())
-  text      String
-  active    Boolean  @default(true)
-  color     String   @default("#c89f4f")
-  bgColor   String   @default("#1a3a22")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  text         String
+  active       Boolean  @default(true)
+  color        String   @default("#c89f4f")
+  bgColor      String   @default("#1a3a22")
+  emoji        String   @default("🌿")
+  speedSeconds Int      @default(75)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Order {
