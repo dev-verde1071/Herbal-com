@@ -1,4 +1,3 @@
-export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { db } from "@/lib/db";
