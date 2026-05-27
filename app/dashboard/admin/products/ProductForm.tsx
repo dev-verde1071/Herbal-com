@@ -29,7 +29,11 @@ type ProductFormData = {
   variants: Variant[];
 };
 
-export default function ProductForm({ product }: { product?: ProductFormData }) {
+export default function ProductForm({
+  product,
+}: {
+  product?: ProductFormData;
+}) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
@@ -321,10 +325,14 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                 category: e.target.value,
               })
             }
-            className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
+            className="w-full rounded-2xl bg-jungle-950 text-white border border-jungle-700 px-4 py-3 outline-none focus:border-jungle-400"
           >
             {PRODUCT_CATEGORIES.map((category) => (
-              <option key={category.value} value={category.value}>
+              <option
+                key={category.value}
+                value={category.value}
+                className="bg-jungle-950 text-white"
+              >
                 {category.label}
               </option>
             ))}
@@ -364,11 +372,19 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                 type: e.target.value as ProductFormData["type"],
               })
             }
-            className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
+            className="w-full rounded-2xl bg-jungle-950 text-white border border-jungle-700 px-4 py-3 outline-none focus:border-jungle-400"
           >
-            <option value="RETAIL">Retail</option>
-            <option value="WHOLESALE">Wholesale</option>
-            <option value="BOTH">Both</option>
+            <option className="bg-jungle-950 text-white" value="RETAIL">
+              Retail
+            </option>
+
+            <option className="bg-jungle-950 text-white" value="WHOLESALE">
+              Wholesale
+            </option>
+
+            <option className="bg-jungle-950 text-white" value="BOTH">
+              Both
+            </option>
           </select>
         </div>
 
@@ -385,7 +401,7 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
           />
 
           <span className="text-sm text-zinc-300">
-            Active / visible on website
+            Active on product page
           </span>
         </label>
 
@@ -402,7 +418,7 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
           />
 
           <span className="text-sm text-zinc-300">
-            Featured product
+            Featured on homepage
           </span>
         </label>
       </div>
@@ -675,7 +691,9 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                       multiple
                       hidden
                       onChange={(e) => {
-                        if (e.target.files) addVariantImages(index, e.target.files);
+                        if (e.target.files) {
+                          addVariantImages(index, e.target.files);
+                        }
                       }}
                     />
                   </label>
@@ -736,7 +754,11 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                         <button
                           type="button"
                           onClick={() =>
-                            moveVariantImage(index, imageIndex, imageIndex - 1)
+                            moveVariantImage(
+                              index,
+                              imageIndex,
+                              imageIndex - 1
+                            )
                           }
                           className="absolute top-2 right-16 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
                         >
@@ -746,7 +768,11 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                         <button
                           type="button"
                           onClick={() =>
-                            moveVariantImage(index, imageIndex, imageIndex + 1)
+                            moveVariantImage(
+                              index,
+                              imageIndex,
+                              imageIndex + 1
+                            )
                           }
                           className="absolute top-2 right-9 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
                         >
