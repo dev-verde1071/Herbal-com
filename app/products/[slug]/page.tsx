@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { db } from "@/lib/db";
-import CheckoutButton from "@/components/CheckoutButton";
+import AddToCartButton from "@/components/AddToCartButton";
 import { formatPrice, CATEGORY_LABELS, CATEGORY_ICONS } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 export default async function ProductPage({
   params,
@@ -22,7 +24,7 @@ export default async function ProductPage({
 
   if (!product || !product.active) return notFound();
 
-  const image = product.images[0] || null;
+  const productImage = product.images[0] || null;
 
   return (
     <div className="min-h-screen py-12 px-6">
@@ -30,9 +32,9 @@ export default async function ProductPage({
         <div className="grid lg:grid-cols-2 gap-14">
           <div>
             <div className="relative aspect-square rounded-3xl overflow-hidden bg-bark-800 border border-jungle-900/60">
-              {image ? (
+              {productImage ? (
                 <Image
-                  src={image}
+                  src={productImage}
                   alt={product.name}
                   fill
                   className="object-cover"
@@ -42,10 +44,7 @@ export default async function ProductPage({
                   <span className="text-7xl">
                     {CATEGORY_ICONS[product.category] || "🌿"}
                   </span>
-
-                  <p className="text-sm">
-                    Image coming soon
-                  </p>
+                  <p className="text-sm">Image coming soon</p>
                 </div>
               )}
             </div>
@@ -84,6 +83,12 @@ export default async function ProductPage({
               {product.name}
             </h1>
 
+            {product.subcategory && (
+              <p className="mb-5 inline-flex rounded-full border border-jungle-700 bg-jungle-950 px-4 py-2 text-sm text-jungle-300">
+                {product.subcategory}
+              </p>
+            )}
+
             {product.description && (
               <p className="text-zinc-300 leading-relaxed text-lg mb-8">
                 {product.description}
@@ -91,46 +96,77 @@ export default async function ProductPage({
             )}
 
             <div className="space-y-4">
-              {product.variants.map((variant) => (
-                <div
-                  key={variant.id}
-                  className="glass rounded-2xl p-5 border border-jungle-900/60"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                      <h3 className="font-semibold text-lg">
-                        {variant.label}
-                      </h3>
+              {product.variants.map((variant) => {
+                const variantImage =
+                  variant.images?.[0] || product.images?.[0] || null;
 
-                      <p
-                        className="text-2xl font-bold mt-1"
-                        style={{ color: "#c89f4f" }}
-                      >
-                        {formatPrice(variant.price)}
-                      </p>
-
-                      <div className="mt-2 text-sm">
-                        {variant.inStock ? (
-                          <span className="text-green-400">
-                            ✓ In stock
-                          </span>
+                return (
+                  <div
+                    key={variant.id}
+                    className="glass rounded-2xl p-5 border border-jungle-900/60"
+                  >
+                    <div className="flex flex-col md:flex-row gap-5">
+                      <div className="relative w-full md:w-28 h-28 rounded-2xl overflow-hidden bg-black/30 border border-jungle-900/60 shrink-0">
+                        {variantImage ? (
+                          <Image
+                            src={variantImage}
+                            alt={`${product.name} ${variant.label}`}
+                            fill
+                            className="object-cover"
+                          />
                         ) : (
-                          <span className="text-red-400">
-                            Out of stock
-                          </span>
+                          <div className="w-full h-full flex items-center justify-center text-3xl">
+                            🌿
+                          </div>
                         )}
                       </div>
-                    </div>
 
-                    <div className="w-full md:w-56">
-                      <CheckoutButton
-                        variantId={variant.id}
-                        disabled={!variant.inStock}
-                      />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">
+                          {variant.label}
+                        </h3>
+
+                        <div className="flex items-center gap-3 mt-1">
+                          <p
+                            className="text-2xl font-bold"
+                            style={{ color: "#c89f4f" }}
+                          >
+                            {formatPrice(variant.price)}
+                          </p>
+
+                          {variant.compareAt && (
+                            <p className="text-zinc-500 line-through">
+                              {formatPrice(variant.compareAt)}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="mt-2 text-sm">
+                          {variant.inStock && variant.qty > 0 ? (
+                            <span className="text-green-400">
+                              ✓ In stock · {variant.qty} available
+                            </span>
+                          ) : (
+                            <span className="text-red-400">Out of stock</span>
+                          )}
+                        </div>
+
+                        <div className="mt-5">
+                          <AddToCartButton
+                            productId={product.id}
+                            variantId={variant.id}
+                            name={product.name}
+                            variantLabel={variant.label}
+                            price={variant.price}
+                            image={variantImage}
+                            disabled={!variant.inStock || variant.qty <= 0}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-10 glass rounded-2xl p-6 border border-jungle-900/60">
@@ -139,21 +175,10 @@ export default async function ProductPage({
               </h3>
 
               <div className="space-y-3 text-sm text-zinc-400">
-                <p>
-                  • Ethically sourced from trusted communities
-                </p>
-
-                <p>
-                  • Carefully handled for freshness and quality
-                </p>
-
-                <p>
-                  • Store in a cool dry place
-                </p>
-
-                <p>
-                  • Consult your healthcare provider before use
-                </p>
+                <p>• Ethically sourced from trusted communities</p>
+                <p>• Carefully handled for freshness and quality</p>
+                <p>• Store in a cool dry place</p>
+                <p>• Consult your healthcare provider before use</p>
               </div>
             </div>
           </div>
