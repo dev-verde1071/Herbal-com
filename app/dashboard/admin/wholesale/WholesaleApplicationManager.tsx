@@ -14,6 +14,7 @@ type WholesaleApplication = {
   message?: string | null;
   status: ApplicationStatus;
   adminNote?: string | null;
+  archived?: boolean;
   createdAt: string | Date;
 };
 
@@ -25,14 +26,21 @@ export default function WholesaleApplicationManager({ applications }: Props) {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"ALL" | ApplicationStatus>("PENDING");
+  const [filter, setFilter] = useState<
+    "ALL" | "ACTIVE" | "ARCHIVED" | ApplicationStatus
+  >("PENDING");
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const filteredApplications = useMemo(() => {
     const q = search.toLowerCase().trim();
 
     return applications.filter((app) => {
-      const matchesFilter = filter === "ALL" || app.status === filter;
+      let matchesFilter = true;
+
+      if (filter === "ACTIVE") matchesFilter = !app.archived;
+      else if (filter === "ARCHIVED") matchesFilter = !!app.archived;
+      else if (filter === "ALL") matchesFilter = true;
+      else matchesFilter = app.status === filter && !app.archived;
 
       const searchableText = [
         app.business,
@@ -55,9 +63,11 @@ export default function WholesaleApplicationManager({ applications }: Props) {
   const counts = useMemo(() => {
     return {
       ALL: applications.length,
-      PENDING: applications.filter((app) => app.status === "PENDING").length,
-      APPROVED: applications.filter((app) => app.status === "APPROVED").length,
-      REJECTED: applications.filter((app) => app.status === "REJECTED").length,
+      ACTIVE: applications.filter((app) => !app.archived).length,
+      ARCHIVED: applications.filter((app) => app.archived).length,
+      PENDING: applications.filter((app) => app.status === "PENDING" && !app.archived).length,
+      APPROVED: applications.filter((app) => app.status === "APPROVED" && !app.archived).length,
+      REJECTED: applications.filter((app) => app.status === "REJECTED" && !app.archived).length,
     };
   }, [applications]);
 
@@ -73,20 +83,67 @@ export default function WholesaleApplicationManager({ applications }: Props) {
 
     const res = await fetch(`/api/admin/wholesale/${id}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        status,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
     });
 
     const data = await res.json();
-
     setLoadingId(null);
 
     if (!res.ok) {
       alert(data.error || "Failed to update application.");
+      return;
+    }
+
+    router.refresh();
+  }
+
+  async function archiveApplication(id: string, archived: boolean) {
+    const confirmText = archived
+      ? "Archive this wholesale application?"
+      : "Restore this wholesale application?";
+
+    if (!confirm(confirmText)) return;
+
+    setLoadingId(id);
+
+    const res = await fetch(`/api/admin/wholesale/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived }),
+    });
+
+    const data = await res.json();
+    setLoadingId(null);
+
+    if (!res.ok) {
+      alert(data.error || "Failed to update archive status.");
+      return;
+    }
+
+    router.refresh();
+  }
+
+  async function deleteApplication(id: string) {
+    if (
+      !confirm(
+        "Permanently delete this wholesale application? This cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setLoadingId(id);
+
+    const res = await fetch(`/api/admin/wholesale/${id}`, {
+      method: "DELETE",
+    });
+
+    const data = await res.json();
+    setLoadingId(null);
+
+    if (!res.ok) {
+      alert(data.error || "Failed to delete application.");
       return;
     }
 
@@ -126,23 +183,25 @@ export default function WholesaleApplicationManager({ applications }: Props) {
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5">
-          {(["ALL", "PENDING", "APPROVED", "REJECTED"] as const).map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => setFilter(status)}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold border transition ${
-                filter === status
-                  ? "bg-jungle-700 border-jungle-400 text-white"
-                  : "bg-black/20 border-jungle-900/60 text-zinc-300 hover:bg-jungle-900/60"
-              }`}
-            >
-              {status.charAt(0) + status.slice(1).toLowerCase()}{" "}
-              <span className="text-xs opacity-70">
-                ({counts[status]})
-              </span>
-            </button>
-          ))}
+          {(["PENDING", "APPROVED", "REJECTED", "ACTIVE", "ARCHIVED", "ALL"] as const).map(
+            (status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setFilter(status)}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold border transition ${
+                  filter === status
+                    ? "bg-jungle-700 border-jungle-400 text-white"
+                    : "bg-black/20 border-jungle-900/60 text-zinc-300 hover:bg-jungle-900/60"
+                }`}
+              >
+                {status.charAt(0) + status.slice(1).toLowerCase()}{" "}
+                <span className="text-xs opacity-70">
+                  ({counts[status]})
+                </span>
+              </button>
+            )
+          )}
         </div>
 
         <p className="text-zinc-500 text-sm mt-4">
@@ -158,7 +217,11 @@ export default function WholesaleApplicationManager({ applications }: Props) {
         filteredApplications.map((app) => (
           <div
             key={app.id}
-            className="glass rounded-3xl p-8 border border-jungle-900/60"
+            className={`glass rounded-3xl p-8 border ${
+              app.archived
+                ? "border-zinc-800/80 opacity-70"
+                : "border-jungle-900/60"
+            }`}
           >
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
               <div className="min-w-0">
@@ -172,6 +235,12 @@ export default function WholesaleApplicationManager({ applications }: Props) {
                   >
                     {app.status}
                   </span>
+
+                  {app.archived && (
+                    <span className="text-xs px-3 py-1 rounded-full border border-zinc-700 bg-zinc-900/50 text-zinc-300">
+                      ARCHIVED
+                    </span>
+                  )}
                 </div>
 
                 <p className="text-xs text-zinc-500 mb-5">
@@ -199,14 +268,14 @@ export default function WholesaleApplicationManager({ applications }: Props) {
                 </div>
               </div>
 
-              <div className="lg:w-72">
-                {app.status === "PENDING" ? (
-                  <div className="flex flex-col gap-3">
+              <div className="lg:w-80 space-y-3">
+                {!app.archived && app.status === "PENDING" && (
+                  <>
                     <button
                       type="button"
                       disabled={loadingId === app.id}
                       onClick={() => updateStatus(app.id, "APPROVED")}
-                      className="rounded-2xl bg-green-700 hover:bg-green-600 disabled:opacity-50 px-5 py-3 text-sm font-semibold transition"
+                      className="w-full rounded-2xl bg-green-700 hover:bg-green-600 disabled:opacity-50 px-5 py-3 text-sm font-semibold transition"
                     >
                       {loadingId === app.id ? "Sending..." : "Approve & Email"}
                     </button>
@@ -215,20 +284,40 @@ export default function WholesaleApplicationManager({ applications }: Props) {
                       type="button"
                       disabled={loadingId === app.id}
                       onClick={() => updateStatus(app.id, "REJECTED")}
-                      className="rounded-2xl bg-red-800 hover:bg-red-700 disabled:opacity-50 px-5 py-3 text-sm font-semibold transition"
+                      className="w-full rounded-2xl bg-red-800 hover:bg-red-700 disabled:opacity-50 px-5 py-3 text-sm font-semibold transition"
                     >
                       {loadingId === app.id ? "Sending..." : "Reject & Email"}
                     </button>
-                  </div>
-                ) : (
+                  </>
+                )}
+
+                {!app.archived && app.status !== "PENDING" && (
                   <div className="rounded-2xl bg-black/20 border border-jungle-900/60 p-4 text-sm text-zinc-400">
-                    This application has already been marked{" "}
+                    Marked{" "}
                     <span className="font-semibold text-white">
                       {app.status}
                     </span>
                     .
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  disabled={loadingId === app.id}
+                  onClick={() => archiveApplication(app.id, !app.archived)}
+                  className="w-full rounded-2xl bg-black/30 hover:bg-jungle-900/60 border border-jungle-900/60 px-5 py-3 text-sm font-semibold transition"
+                >
+                  {app.archived ? "Restore Application" : "Archive Application"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loadingId === app.id}
+                  onClick={() => deleteApplication(app.id)}
+                  className="w-full rounded-2xl bg-red-950/70 hover:bg-red-900 border border-red-800/60 px-5 py-3 text-sm font-semibold text-red-200 transition"
+                >
+                  Delete Permanently
+                </button>
               </div>
             </div>
           </div>
