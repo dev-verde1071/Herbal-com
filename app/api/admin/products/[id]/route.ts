@@ -7,10 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   const { id } = await params;
@@ -27,10 +24,7 @@ export async function GET(
   });
 
   if (!product) {
-    return NextResponse.json(
-      { error: "Product not found." },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Product not found." }, { status: 404 });
   }
 
   return NextResponse.json(product);
@@ -41,10 +35,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   try {
@@ -87,12 +78,11 @@ export async function PUT(
             variants?.map((variant: any) => ({
               label: variant.label,
               price: Number(variant.price),
-              compareAt: variant.compareAt
-                ? Number(variant.compareAt)
-                : null,
+              compareAt: variant.compareAt ? Number(variant.compareAt) : null,
               sku: variant.sku || null,
               qty: Number(variant.qty || 0),
               inStock: variant.inStock ?? true,
+              images: Array.isArray(variant.images) ? variant.images : [],
               stripePriceId: variant.stripePriceId || null,
               metadata: variant.metadata || {},
             })) || [],
@@ -119,10 +109,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   try {
