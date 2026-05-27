@@ -41,7 +41,9 @@ export async function POST(req: Request) {
         const qty = Math.max(1, Number(item.qty || 1));
 
         if (variant.qty > 0 && qty > variant.qty) {
-          throw new Error(`Only ${variant.qty} available for ${variant.product.name}.`);
+          throw new Error(
+            `Only ${variant.qty} available for ${variant.product.name}.`
+          );
         }
 
         return {
@@ -51,9 +53,6 @@ export async function POST(req: Request) {
             product_data: {
               name: `${variant.product.name} - ${variant.label}`,
               description: variant.product.description || undefined,
-              images: (variant.images?.[0]
-                ? [variant.images[0]]
-                : variant.product.images?.slice(0, 1)) || [],
             },
           },
           quantity: qty,
@@ -68,12 +67,6 @@ export async function POST(req: Request) {
         line_items: lineItems,
         metadata: {
           type: "cart",
-          cart: JSON.stringify(
-            items.map((item: any) => ({
-              variantId: item.variantId,
-              qty: item.qty,
-            }))
-          ).slice(0, 450),
         },
       });
 
@@ -106,10 +99,6 @@ export async function POST(req: Request) {
               product_data: {
                 name: `${variant.product.name} - ${variant.label}`,
                 description: variant.product.description || undefined,
-                images:
-                  (variant.images?.[0]
-                    ? [variant.images[0]]
-                    : variant.product.images?.slice(0, 1)) || [],
               },
             },
             quantity: 1,
@@ -150,7 +139,6 @@ export async function POST(req: Request) {
               product_data: {
                 name: retreat.name,
                 description: retreat.description || undefined,
-                images: retreat.images?.slice(0, 1),
               },
             },
             quantity: 1,
