@@ -5,10 +5,7 @@ import { slugify } from "@/lib/utils";
 
 export async function GET() {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   const products = await db.product.findMany({
@@ -29,10 +26,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   try {
@@ -84,12 +78,11 @@ export async function POST(req: Request) {
             variants?.map((variant: any) => ({
               label: variant.label,
               price: Number(variant.price),
-              compareAt: variant.compareAt
-                ? Number(variant.compareAt)
-                : null,
+              compareAt: variant.compareAt ? Number(variant.compareAt) : null,
               sku: variant.sku || null,
               qty: Number(variant.qty || 0),
               inStock: variant.inStock ?? true,
+              images: Array.isArray(variant.images) ? variant.images : [],
               stripePriceId: variant.stripePriceId || null,
               metadata: variant.metadata || {},
             })) || [],
