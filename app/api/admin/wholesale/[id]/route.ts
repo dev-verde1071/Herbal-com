@@ -16,13 +16,16 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await req.json();
-
     const status = body.status;
 
     if (!["APPROVED", "REJECTED"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+    }
+
+    if (!resend) {
       return NextResponse.json(
-        { error: "Invalid application status." },
-        { status: 400 }
+        { error: "Resend is not configured. Check RESEND_API_KEY in Render." },
+        { status: 500 }
       );
     }
 
@@ -34,37 +37,51 @@ export async function PUT(
       },
     });
 
-    if (resend && status === "APPROVED") {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: application.email,
-        subject: "Wholesale Access Approved - Herbal Communities",
-        react: WholesaleApproved({
-          name: application.name,
-          businessName: application.business,
-          siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-        }),
-      });
+    const emailResult =
+      status === "APPROVED"
+        ? await resend.emails.send({
+            from: FROM_EMAIL,
+            to: application.email,
+            subject: "Wholesale Access Approved - Herbal Communities",
+            react: WholesaleApproved({
+              name: application.name,
+              businessName: application.business,
+              siteUrl:
+                process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+            }),
+          })
+        : await resend.emails.send({
+            from: FROM_EMAIL,
+            to: application.email,
+            subject: "Wholesale Application Update - Herbal Communities",
+            react: WholesaleRejected({
+              name: application.name,
+              businessName: application.business,
+            }),
+          });
+
+    if (emailResult.error) {
+      console.error("Resend error:", emailResult.error);
+
+      return NextResponse.json(
+        {
+          error: "Application status updated, but email failed.",
+          resendError: emailResult.error,
+        },
+        { status: 500 }
+      );
     }
 
-    if (resend && status === "REJECTED") {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: application.email,
-        subject: "Wholesale Application Update - Herbal Communities",
-        react: WholesaleRejected({
-          name: application.name,
-          businessName: application.business,
-        }),
-      });
-    }
-
-    return NextResponse.json(application);
-  } catch (error) {
-    console.error("Wholesale approval error:", error);
+    return NextResponse.json({
+      success: true,
+      application,
+      emailId: emailResult.data?.id,
+    });
+  } catch (error: any) {
+    console.error("Wholesale email route error:", error);
 
     return NextResponse.json(
-      { error: "Failed to update application." },
+      { error: error.message || "Failed to update application." },
       { status: 500 }
     );
   }
