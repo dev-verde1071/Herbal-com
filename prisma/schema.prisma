@@ -61,6 +61,7 @@ model ProductVariant {
   sku           String?
   qty           Int      @default(0)
   inStock       Boolean  @default(true)
+  images        String[]
   stripePriceId String?
   metadata      Json?
   createdAt     DateTime @default(now())
