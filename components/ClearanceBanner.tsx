@@ -23,9 +23,6 @@ export default function ClearanceBanner() {
 
   if (!banner || !banner.active) return null;
 
-  const emoji = banner.emoji || "🌿";
-  const speed = banner.speedSeconds || 90;
-
   return (
     <div
       className="relative overflow-hidden border-b border-amber-500/20"
@@ -33,7 +30,7 @@ export default function ClearanceBanner() {
     >
       <div
         className="marquee-track py-2"
-        style={{ animationDuration: `${speed}s` }}
+        style={{ animationDuration: `${banner.speedSeconds || 90}s` }}
       >
         {Array.from({ length: 10 }).map((_, i) => (
           <div
@@ -41,7 +38,7 @@ export default function ClearanceBanner() {
             className="flex items-center gap-3 px-8 text-xs uppercase tracking-[0.25em] whitespace-nowrap"
             style={{ color: banner.color }}
           >
-            {emoji} {banner.text} •
+            {banner.emoji || "🌿"} {banner.text} •
           </div>
         ))}
       </div>
