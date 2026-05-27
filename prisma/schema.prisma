@@ -16,7 +16,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  wholesaleApplication WholesaleApplication?
+  wholesaleApplications WholesaleApplication[]
   orders               Order[]
 }
 
