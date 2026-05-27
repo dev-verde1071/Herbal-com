@@ -4,11 +4,81 @@ import { stripe } from "@/lib/stripe";
 
 export async function POST(req: Request) {
   try {
+    if (!stripe) {
+      return NextResponse.json(
+        { error: "Stripe is not configured yet." },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
-    const { variantId, retreatId } = body;
+    const { items, variantId, retreatId } = body;
 
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+    if (Array.isArray(items) && items.length > 0) {
+      const variantIds = items.map((item: any) => item.variantId);
+
+      const variants = await db.productVariant.findMany({
+        where: {
+          id: {
+            in: variantIds,
+          },
+        },
+        include: {
+          product: true,
+        },
+      });
+
+      const lineItems = items.map((item: any) => {
+        const variant = variants.find((v) => v.id === item.variantId);
+
+        if (!variant || !variant.product || !variant.inStock) {
+          throw new Error("One or more cart items are unavailable.");
+        }
+
+        const qty = Math.max(1, Number(item.qty || 1));
+
+        if (variant.qty > 0 && qty > variant.qty) {
+          throw new Error(`Only ${variant.qty} available for ${variant.product.name}.`);
+        }
+
+        return {
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(variant.price * 100),
+            product_data: {
+              name: `${variant.product.name} - ${variant.label}`,
+              description: variant.product.description || undefined,
+              images: (variant.images?.[0]
+                ? [variant.images[0]]
+                : variant.product.images?.slice(0, 1)) || [],
+            },
+          },
+          quantity: qty,
+        };
+      });
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/cart`,
+        customer_creation: "always",
+        line_items: lineItems,
+        metadata: {
+          type: "cart",
+          cart: JSON.stringify(
+            items.map((item: any) => ({
+              variantId: item.variantId,
+              qty: item.qty,
+            }))
+          ).slice(0, 450),
+        },
+      });
+
+      return NextResponse.json({ url: session.url });
+    }
 
     if (variantId) {
       const variant = await db.productVariant.findUnique({
@@ -36,7 +106,10 @@ export async function POST(req: Request) {
               product_data: {
                 name: `${variant.product.name} - ${variant.label}`,
                 description: variant.product.description || undefined,
-                images: variant.product.images?.slice(0, 1),
+                images:
+                  (variant.images?.[0]
+                    ? [variant.images[0]]
+                    : variant.product.images?.slice(0, 1)) || [],
               },
             },
             quantity: 1,
@@ -96,11 +169,11 @@ export async function POST(req: Request) {
       { error: "Missing checkout item." },
       { status: 400 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Checkout error:", error);
 
     return NextResponse.json(
-      { error: "Checkout failed." },
+      { error: error.message || "Checkout failed." },
       { status: 500 }
     );
   }
