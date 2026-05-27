@@ -5,20 +5,23 @@ import { useState } from "react";
 export default function WholesaleInquiryForm() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     setLoading(true);
+    setSuccess(false);
+    setError("");
 
     const formData = new FormData(e.currentTarget);
 
     const payload = {
-      name: formData.get("name"),
-      business: formData.get("business"),
-      email: formData.get("email"),
-      phone: formData.get("phone"),
-      message: formData.get("message"),
+      name: String(formData.get("name") || ""),
+      business: String(formData.get("business") || ""),
+      email: String(formData.get("email") || ""),
+      phone: String(formData.get("phone") || ""),
+      message: String(formData.get("message") || ""),
     };
 
     try {
@@ -30,13 +33,20 @@ export default function WholesaleInquiryForm() {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        setSuccess(true);
-        e.currentTarget.reset();
-      }
-    } catch {}
+      const data = await res.json();
 
-    setLoading(false);
+      if (!res.ok) {
+        setError(data.error || "Failed to submit wholesale application.");
+        return;
+      }
+
+      setSuccess(true);
+      e.currentTarget.reset();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -48,6 +58,12 @@ export default function WholesaleInquiryForm() {
       {success && (
         <div className="mb-6 rounded-2xl bg-green-900/30 border border-green-700/40 p-4 text-green-300">
           Application submitted successfully.
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 rounded-2xl bg-red-900/30 border border-red-700/40 p-4 text-red-300">
+          {error}
         </div>
       )}
 
