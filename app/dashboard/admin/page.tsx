@@ -34,6 +34,12 @@ export default async function AdminDashboardPage() {
       desc: "Manage top announcement banner",
       emoji: "📢",
     },
+    {
+      title: "Orders",
+      href: "/dashboard/admin/orders",
+      desc: "View orders, export CSV, and create shipping labels",
+      emoji: "📦",
+    },
   ];
 
   return (
