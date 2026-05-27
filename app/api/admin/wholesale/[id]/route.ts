@@ -16,17 +16,22 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await req.json();
+
+    if (typeof body.archived === "boolean") {
+      const application = await db.wholesaleApplication.update({
+        where: { id },
+        data: {
+          archived: body.archived,
+        },
+      });
+
+      return NextResponse.json({ success: true, application });
+    }
+
     const status = body.status;
 
     if (!["APPROVED", "REJECTED"].includes(status)) {
       return NextResponse.json({ error: "Invalid status." }, { status: 400 });
-    }
-
-    if (!resend) {
-      return NextResponse.json(
-        { error: "Resend is not configured. Check RESEND_API_KEY in Render." },
-        { status: 500 }
-      );
     }
 
     const application = await db.wholesaleApplication.update({
@@ -37,51 +42,83 @@ export async function PUT(
       },
     });
 
-    const emailResult =
-      status === "APPROVED"
-        ? await resend.emails.send({
-            from: FROM_EMAIL,
-            to: application.email,
-            subject: "Wholesale Access Approved - Herbal Communities",
-            react: WholesaleApproved({
-              name: application.name,
-              businessName: application.business,
-              siteUrl:
-                process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-            }),
-          })
-        : await resend.emails.send({
-            from: FROM_EMAIL,
-            to: application.email,
-            subject: "Wholesale Application Update - Herbal Communities",
-            react: WholesaleRejected({
-              name: application.name,
-              businessName: application.business,
-            }),
-          });
+    if (resend && status === "APPROVED") {
+      const emailResult = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: application.email,
+        subject: "Wholesale Access Approved - Herbal Communities",
+        react: WholesaleApproved({
+          name: application.name,
+          businessName: application.business,
+          siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        }),
+      });
 
-    if (emailResult.error) {
-      console.error("Resend error:", emailResult.error);
-
-      return NextResponse.json(
-        {
-          error: "Application status updated, but email failed.",
-          resendError: emailResult.error,
-        },
-        { status: 500 }
-      );
+      if (emailResult.error) {
+        return NextResponse.json(
+          {
+            error: "Application approved, but approval email failed.",
+            resendError: emailResult.error,
+          },
+          { status: 500 }
+        );
+      }
     }
 
-    return NextResponse.json({
-      success: true,
-      application,
-      emailId: emailResult.data?.id,
-    });
+    if (resend && status === "REJECTED") {
+      const emailResult = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: application.email,
+        subject: "Wholesale Application Update - Herbal Communities",
+        react: WholesaleRejected({
+          name: application.name,
+          businessName: application.business,
+        }),
+      });
+
+      if (emailResult.error) {
+        return NextResponse.json(
+          {
+            error: "Application rejected, but rejection email failed.",
+            resendError: emailResult.error,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    return NextResponse.json({ success: true, application });
   } catch (error: any) {
-    console.error("Wholesale email route error:", error);
+    console.error("Wholesale application update error:", error);
 
     return NextResponse.json(
       { error: error.message || "Failed to update application." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  try {
+    const { id } = await params;
+
+    await db.wholesaleApplication.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Wholesale application delete error:", error);
+
+    return NextResponse.json(
+      { error: error.message || "Failed to delete application." },
       { status: 500 }
     );
   }
