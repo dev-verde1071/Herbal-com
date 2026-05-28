@@ -1,88 +1,152 @@
-"use client";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingBag } from "lucide-react";
-import { formatPrice, CATEGORY_LABELS, CATEGORY_ICONS } from "@/lib/utils";
+import { CATEGORY_ICONS, CATEGORY_LABELS, formatPrice } from "@/lib/utils";
 
-type Variant = { id: string; label: string; price: number; inStock: boolean };
-type Props = {
-  product: {
-    id: string; name: string; slug: string;
-    description?: string | null; images: string[];
-    category: string; variants: Variant[];
-  };
+type Variant = {
+  id: string;
+  label: string;
+  price: number;
+  compareAt?: number | null;
+  qty: number;
+  inStock: boolean;
+  images?: string[];
 };
 
-const CAT_STYLE: Record<string, string> = {
-  herbs:      "bg-jungle-900/60 text-jungle-300 border-jungle-700/40",
-  seamoss:    "bg-teal-900/60 text-teal-300 border-teal-700/40",
-  honey:      "bg-yellow-900/60 text-yellow-300 border-yellow-700/40",
-  oils:       "bg-orange-900/60 text-orange-300 border-orange-700/40",
-  mushrooms:  "bg-purple-900/60 text-purple-300 border-purple-700/40",
-  hairskin:   "bg-pink-900/60 text-pink-300 border-pink-700/40",
-  packages:   "bg-blue-900/60 text-blue-300 border-blue-700/40",
-  foods:      "bg-amber-900/60 text-amber-300 border-amber-700/40",
-  duckflower: "bg-red-900/60 text-red-300 border-red-700/40",
+type Product = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  category: string;
+  subcategory?: string | null;
+  type?: "RETAIL" | "WHOLESALE" | "BOTH" | string;
+  images?: string[];
+  active: boolean;
+  featured?: boolean;
+  variants: Variant[];
 };
 
-export default function ProductCard({ product }: Props) {
-  const lowestPrice = product.variants.length > 0 ? Math.min(...product.variants.map((v) => v.price)) : null;
-  const hasInStock   = product.variants.some((v) => v.inStock);
-  const image        = product.images[0] || null;
-  const catStyle     = CAT_STYLE[product.category] || CAT_STYLE.herbs;
-  const catLabel     = CATEGORY_LABELS[product.category] || product.category;
-  const catIcon      = CATEGORY_ICONS[product.category] || "🌿";
+export default function ProductCard({ product }: { product: Product }) {
+  const firstVariant = product.variants?.[0];
+
+  const firstVariantImage = firstVariant?.images?.[0] || null;
+  const productImage = product.images?.[0] || firstVariantImage || null;
+
+  const isWholesale = product.type === "WHOLESALE";
+
+  const href = isWholesale
+    ? "/dashboard/wholesale"
+    : `/products/${product.slug}`;
+
+  const categoryLabel = CATEGORY_LABELS[product.category] || product.category;
+  const categoryIcon = CATEGORY_ICONS[product.category] || "🌿";
+
+  const totalQty =
+    product.variants?.reduce(
+      (sum, variant) => sum + Number(variant.qty || 0),
+      0
+    ) || 0;
+
+  const inStock =
+    product.variants?.some(
+      (variant) => variant.inStock && Number(variant.qty || 0) > 0
+    ) || false;
 
   return (
-    <div className="product-card rounded-2xl overflow-hidden bg-bark-800/60 border border-jungle-900/60 flex flex-col group">
-      <Link href={`/products/${product.slug}`} className="block relative w-full h-56 bg-jungle-950 overflow-hidden">
-        {image ? (
-          <Image src={image} alt={product.name} fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            sizes="(max-width:768px) 100vw,33vw" />
+    <Link
+      href={href}
+      className="group glass rounded-3xl overflow-hidden border border-jungle-900/60 hover:border-jungle-500/70 transition block"
+    >
+      <div className="relative aspect-[4/3] bg-black/30 overflow-hidden">
+        {productImage ? (
+          <Image
+            src={productImage}
+            alt={product.name}
+            fill
+            className="object-cover group-hover:scale-105 transition duration-500"
+          />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-jungle-700">
-            <span className="text-5xl">{catIcon}</span>
-            <span className="text-xs">Photo coming soon</span>
+          <div className="w-full h-full flex items-center justify-center text-6xl text-jungle-600">
+            {categoryIcon}
           </div>
         )}
-        {!hasInStock && (
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <span className="text-sm font-semibold text-gray-300 bg-black/60 px-3 py-1 rounded-full">Out of Stock</span>
-          </div>
-        )}
-        <div className="absolute top-3 left-3">
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${catStyle}`}>{catLabel}</span>
-        </div>
-      </Link>
 
-      <div className="p-4 flex flex-col gap-3 flex-1">
-        <div>
-          <Link href={`/products/${product.slug}`}>
-            <h3 className="font-semibold text-white hover:text-jungle-300 transition line-clamp-2 leading-snug">{product.name}</h3>
-          </Link>
-          {product.description && (
-            <p className="text-xs text-gray-400 mt-1 line-clamp-2">{product.description}</p>
+        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+          <span className="rounded-full bg-black/70 border border-jungle-700/60 px-3 py-1 text-xs text-jungle-200">
+            {categoryLabel}
+          </span>
+
+          {isWholesale && (
+            <span className="rounded-full bg-blue-900/80 border border-blue-600/60 px-3 py-1 text-xs text-blue-200">
+              Wholesale
+            </span>
+          )}
+
+          {product.featured && !isWholesale && (
+            <span className="rounded-full bg-amber-900/80 border border-amber-600/60 px-3 py-1 text-xs text-amber-200">
+              Featured
+            </span>
           )}
         </div>
+      </div>
 
-        <div className="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-jungle-900/40">
+      <div className="p-6">
+        {product.subcategory && (
+          <p className="text-xs uppercase tracking-[0.2em] text-jungle-400 mb-2">
+            {product.subcategory}
+          </p>
+        )}
+
+        <h3 className="font-display text-2xl mb-3 group-hover:text-jungle-300 transition">
+          {product.name}
+        </h3>
+
+        {product.description && (
+          <p className="text-zinc-400 text-sm leading-relaxed line-clamp-2 mb-5">
+            {product.description}
+          </p>
+        )}
+
+        <div className="flex items-end justify-between gap-4">
           <div>
-            {lowestPrice !== null
-              ? <p className="text-sm font-bold" style={{ color: "#c89f4f" }}>From {formatPrice(lowestPrice)}</p>
-              : <p className="text-sm text-gray-500">Price varies</p>
-            }
-            <p className="text-xs text-gray-500">{product.variants.length} size{product.variants.length !== 1 ? "s" : ""}</p>
+            {firstVariant ? (
+              <>
+                <p className="text-xs text-zinc-500 mb-1">
+                  Starting at
+                </p>
+
+                <p
+                  className="font-bold text-xl"
+                  style={{ color: "#c89f4f" }}
+                >
+                  {formatPrice(firstVariant.price)}
+                </p>
+              </>
+            ) : (
+              <p className="text-zinc-500 text-sm">
+                Pricing coming soon
+              </p>
+            )}
           </div>
-          <Link href={`/products/${product.slug}`}
-            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition ${
-              hasInStock ? "bg-jungle-600 hover:bg-jungle-500 text-white" : "bg-gray-800 text-gray-500 cursor-not-allowed pointer-events-none"
-            }`}>
-            <ShoppingBag className="w-3.5 h-3.5" />
-            {hasInStock ? "View" : "Sold Out"}
-          </Link>
+
+          <div className="text-right">
+            {inStock ? (
+              <p className="text-green-400 text-xs">
+                {totalQty} available
+              </p>
+            ) : (
+              <p className="text-red-400 text-xs">
+                Out of stock
+              </p>
+            )}
+
+            <p className="text-zinc-500 text-xs mt-1">
+              {product.variants?.length || 0} option
+              {product.variants?.length === 1 ? "" : "s"}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
