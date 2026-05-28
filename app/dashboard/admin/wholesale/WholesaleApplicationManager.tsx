@@ -15,6 +15,7 @@ type WholesaleApplication = {
   status: ApplicationStatus;
   adminNote?: string | null;
   archived?: boolean;
+  outreachNeeded?: boolean;
   createdAt: string | Date;
 };
 
@@ -22,13 +23,20 @@ type Props = {
   applications: WholesaleApplication[];
 };
 
+type Filter =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "OUTREACH"
+  | "ACTIVE"
+  | "ARCHIVED"
+  | "ALL";
+
 export default function WholesaleApplicationManager({ applications }: Props) {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<
-    "ALL" | "ACTIVE" | "ARCHIVED" | ApplicationStatus
-  >("PENDING");
+  const [filter, setFilter] = useState<Filter>("PENDING");
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const filteredApplications = useMemo(() => {
@@ -40,7 +48,11 @@ export default function WholesaleApplicationManager({ applications }: Props) {
       if (filter === "ACTIVE") matchesFilter = !app.archived;
       else if (filter === "ARCHIVED") matchesFilter = !!app.archived;
       else if (filter === "ALL") matchesFilter = true;
-      else matchesFilter = app.status === filter && !app.archived;
+      else if (filter === "OUTREACH") {
+        matchesFilter = !!app.outreachNeeded && !app.archived;
+      } else {
+        matchesFilter = app.status === filter && !app.archived;
+      }
 
       const searchableText = [
         app.business,
@@ -65,9 +77,18 @@ export default function WholesaleApplicationManager({ applications }: Props) {
       ALL: applications.length,
       ACTIVE: applications.filter((app) => !app.archived).length,
       ARCHIVED: applications.filter((app) => app.archived).length,
-      PENDING: applications.filter((app) => app.status === "PENDING" && !app.archived).length,
-      APPROVED: applications.filter((app) => app.status === "APPROVED" && !app.archived).length,
-      REJECTED: applications.filter((app) => app.status === "REJECTED" && !app.archived).length,
+      OUTREACH: applications.filter(
+        (app) => app.outreachNeeded && !app.archived
+      ).length,
+      PENDING: applications.filter(
+        (app) => app.status === "PENDING" && !app.archived
+      ).length,
+      APPROVED: applications.filter(
+        (app) => app.status === "APPROVED" && !app.archived
+      ).length,
+      REJECTED: applications.filter(
+        (app) => app.status === "REJECTED" && !app.archived
+      ).length,
     };
   }, [applications]);
 
@@ -124,6 +145,26 @@ export default function WholesaleApplicationManager({ applications }: Props) {
     router.refresh();
   }
 
+  async function updateOutreach(id: string, outreachNeeded: boolean) {
+    setLoadingId(id);
+
+    const res = await fetch(`/api/admin/wholesale/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outreachNeeded }),
+    });
+
+    const data = await res.json();
+    setLoadingId(null);
+
+    if (!res.ok) {
+      alert(data.error || "Failed to update outreach status.");
+      return;
+    }
+
+    router.refresh();
+  }
+
   async function deleteApplication(id: string) {
     if (
       !confirm(
@@ -162,6 +203,21 @@ export default function WholesaleApplicationManager({ applications }: Props) {
     return "bg-yellow-900/40 text-yellow-300 border-yellow-700/40";
   }
 
+  const filters: Filter[] = [
+    "PENDING",
+    "OUTREACH",
+    "APPROVED",
+    "REJECTED",
+    "ACTIVE",
+    "ARCHIVED",
+    "ALL",
+  ];
+
+  function filterLabel(filterValue: Filter) {
+    if (filterValue === "OUTREACH") return "Outreach";
+    return filterValue.charAt(0) + filterValue.slice(1).toLowerCase();
+  }
+
   return (
     <div className="space-y-6">
       <div className="glass rounded-3xl p-6 border border-jungle-900/60">
@@ -183,25 +239,21 @@ export default function WholesaleApplicationManager({ applications }: Props) {
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5">
-          {(["PENDING", "APPROVED", "REJECTED", "ACTIVE", "ARCHIVED", "ALL"] as const).map(
-            (status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setFilter(status)}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold border transition ${
-                  filter === status
-                    ? "bg-jungle-700 border-jungle-400 text-white"
-                    : "bg-black/20 border-jungle-900/60 text-zinc-300 hover:bg-jungle-900/60"
-                }`}
-              >
-                {status.charAt(0) + status.slice(1).toLowerCase()}{" "}
-                <span className="text-xs opacity-70">
-                  ({counts[status]})
-                </span>
-              </button>
-            )
-          )}
+          {filters.map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => setFilter(status)}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold border transition ${
+                filter === status
+                  ? "bg-jungle-700 border-jungle-400 text-white"
+                  : "bg-black/20 border-jungle-900/60 text-zinc-300 hover:bg-jungle-900/60"
+              }`}
+            >
+              {filterLabel(status)}{" "}
+              <span className="text-xs opacity-70">({counts[status]})</span>
+            </button>
+          ))}
         </div>
 
         <p className="text-zinc-500 text-sm mt-4">
@@ -226,15 +278,19 @@ export default function WholesaleApplicationManager({ applications }: Props) {
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3 mb-3">
-                  <h2 className="font-display text-3xl">
-                    {app.business}
-                  </h2>
+                  <h2 className="font-display text-3xl">{app.business}</h2>
 
                   <span
                     className={`text-xs px-3 py-1 rounded-full border ${statusBadge(app.status)}`}
                   >
                     {app.status}
                   </span>
+
+                  {app.outreachNeeded && !app.archived && (
+                    <span className="text-xs px-3 py-1 rounded-full border border-blue-700/40 bg-blue-900/30 text-blue-300">
+                      OUTREACH
+                    </span>
+                  )}
 
                   {app.archived && (
                     <span className="text-xs px-3 py-1 rounded-full border border-zinc-700 bg-zinc-900/50 text-zinc-300">
@@ -299,6 +355,25 @@ export default function WholesaleApplicationManager({ applications }: Props) {
                     </span>
                     .
                   </div>
+                )}
+
+                {!app.archived && app.status === "APPROVED" && (
+                  <button
+                    type="button"
+                    disabled={loadingId === app.id}
+                    onClick={() =>
+                      updateOutreach(app.id, !app.outreachNeeded)
+                    }
+                    className={`w-full rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
+                      app.outreachNeeded
+                        ? "bg-blue-900/50 hover:bg-blue-900 border-blue-700 text-blue-200"
+                        : "bg-black/30 hover:bg-blue-900/40 border-jungle-900/60 text-zinc-300"
+                    }`}
+                  >
+                    {app.outreachNeeded
+                      ? "Mark Outreach Done"
+                      : "Mark Outreach Needed"}
+                  </button>
                 )}
 
                 <button
