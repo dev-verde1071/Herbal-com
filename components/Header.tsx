@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Menu, X, ShoppingCart } from "lucide-react";
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/nextjs";
 
 const nav = [
   { href: "/", label: "Home" },
@@ -17,24 +24,39 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
-  function updateCartCount() {
-    const cart = JSON.parse(localStorage.getItem("herbal_cart") || "[]");
-    const count = cart.reduce(
-      (sum: number, item: any) => sum + Number(item.qty || 0),
-      0
-    );
-    setCartCount(count);
+  async function updateCartCount() {
+    try {
+      const res = await fetch("/api/cart", { cache: "no-store" });
+
+      if (!res.ok) {
+        setCartCount(0);
+        return;
+      }
+
+      const data = await res.json();
+
+      const count = Array.isArray(data.items)
+        ? data.items.reduce(
+            (sum: number, item: any) => sum + Number(item.qty || 0),
+            0
+          )
+        : 0;
+
+      setCartCount(count);
+    } catch {
+      setCartCount(0);
+    }
   }
 
   useEffect(() => {
     updateCartCount();
 
     window.addEventListener("cart-updated", updateCartCount);
-    window.addEventListener("storage", updateCartCount);
+    window.addEventListener("focus", updateCartCount);
 
     return () => {
       window.removeEventListener("cart-updated", updateCartCount);
-      window.removeEventListener("storage", updateCartCount);
+      window.removeEventListener("focus", updateCartCount);
     };
   }, []);
 
@@ -69,7 +91,25 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="hidden lg:flex items-center gap-4">
+        <div className="hidden lg:flex items-center gap-3">
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="rounded-xl bg-black/30 hover:bg-jungle-900/60 border border-jungle-900/60 px-4 py-2 text-sm font-semibold transition">
+                Login
+              </button>
+            </SignInButton>
+
+            <SignUpButton mode="modal">
+              <button className="rounded-xl bg-jungle-700 hover:bg-jungle-600 px-4 py-2 text-sm font-semibold transition">
+                Sign Up
+              </button>
+            </SignUpButton>
+          </SignedOut>
+
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
+
           <Link
             href="/cart"
             className="relative p-3 rounded-xl hover:bg-jungle-800/40 transition"
@@ -103,6 +143,26 @@ export default function Header() {
                 {item.label}
               </Link>
             ))}
+
+            <div className="flex gap-3 pt-2">
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <button className="flex-1 rounded-xl bg-black/30 border border-jungle-900/60 px-4 py-3 text-sm font-semibold">
+                    Login
+                  </button>
+                </SignInButton>
+
+                <SignUpButton mode="modal">
+                  <button className="flex-1 rounded-xl bg-jungle-700 px-4 py-3 text-sm font-semibold">
+                    Sign Up
+                  </button>
+                </SignUpButton>
+              </SignedOut>
+
+              <SignedIn>
+                <UserButton afterSignOutUrl="/" />
+              </SignedIn>
+            </div>
 
             <Link
               href="/cart"
