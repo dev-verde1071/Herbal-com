@@ -28,6 +28,17 @@ export async function PUT(
       return NextResponse.json({ success: true, application });
     }
 
+    if (typeof body.outreachNeeded === "boolean") {
+      const application = await db.wholesaleApplication.update({
+        where: { id },
+        data: {
+          outreachNeeded: body.outreachNeeded,
+        },
+      });
+
+      return NextResponse.json({ success: true, application });
+    }
+
     const status = body.status;
 
     if (!["APPROVED", "REJECTED"].includes(status)) {
@@ -39,6 +50,7 @@ export async function PUT(
       data: {
         status,
         adminNote: body.adminNote || null,
+        outreachNeeded: status === "APPROVED",
       },
     });
 
