@@ -96,7 +96,7 @@ export default function WholesaleInquiryForm() {
 
         <div>
           <label className="block text-sm mb-2 text-zinc-300">
-            Email
+            Email Used For This Account
           </label>
 
           <input
