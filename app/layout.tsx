@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ClearanceBanner from "@/components/ClearanceBanner";
+import CartSync from "@/components/CartSync";
 
 export const metadata: Metadata = {
   title: "Herbal Communities",
@@ -17,15 +18,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body>
+    <html lang="en">
+      <body>
+        <ClerkProvider>
+          <CartSync />
           <ClearanceBanner />
           <Header />
           {children}
           <Footer />
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }
