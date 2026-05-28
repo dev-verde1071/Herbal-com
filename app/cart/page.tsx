@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Minus, Plus, Trash2, ShoppingCart } from "lucide-react";
 
 type CartItem = {
+  id?: string;
   productId: string;
   variantId: string;
   name: string;
@@ -13,21 +14,32 @@ type CartItem = {
   price: number;
   image?: string | null;
   qty: number;
+  productType?: "RETAIL" | "WHOLESALE" | "BOTH" | string;
+  slug?: string;
 };
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
 
-  function loadCart() {
-    const stored = JSON.parse(localStorage.getItem("herbal_cart") || "[]");
-    setCart(stored);
-  }
+  async function loadCart() {
+    setPageLoading(true);
 
-  function saveCart(updated: CartItem[]) {
-    setCart(updated);
-    localStorage.setItem("herbal_cart", JSON.stringify(updated));
-    window.dispatchEvent(new Event("cart-updated"));
+    const res = await fetch("/api/cart", {
+      cache: "no-store",
+    });
+
+    if (res.status === 401) {
+      setCart([]);
+      setPageLoading(false);
+      return;
+    }
+
+    const data = await res.json();
+
+    setCart(Array.isArray(data.items) ? data.items : []);
+    setPageLoading(false);
   }
 
   useEffect(() => {
@@ -41,24 +53,73 @@ export default function CartPage() {
     );
   }, [cart]);
 
-  function changeQty(variantId: string, amount: number) {
-    const updated = cart
-      .map((item) =>
-        item.variantId === variantId
-          ? { ...item, qty: Math.max(1, item.qty + amount) }
-          : item
-      )
-      .filter((item) => item.qty > 0);
+  async function changeQty(variantId: string, amount: number) {
+    const item = cart.find((cartItem) => cartItem.variantId === variantId);
 
-    saveCart(updated);
+    if (!item) return;
+
+    const nextQty = Math.max(1, Number(item.qty || 1) + amount);
+
+    const res = await fetch("/api/cart", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        variantId,
+        qty: nextQty,
+      }),
+    });
+
+    if (!res.ok) {
+      alert("Failed to update cart.");
+      return;
+    }
+
+    window.dispatchEvent(new Event("cart-updated"));
+    loadCart();
   }
 
-  function removeItem(variantId: string) {
-    saveCart(cart.filter((item) => item.variantId !== variantId));
+  async function removeItem(variantId: string) {
+    const res = await fetch("/api/cart", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        variantId,
+      }),
+    });
+
+    if (!res.ok) {
+      alert("Failed to remove item.");
+      return;
+    }
+
+    window.dispatchEvent(new Event("cart-updated"));
+    loadCart();
   }
 
-  function clearCart() {
-    saveCart([]);
+  async function clearCart() {
+    if (!confirm("Clear your cart?")) return;
+
+    const res = await fetch("/api/cart", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clear: true,
+      }),
+    });
+
+    if (!res.ok) {
+      alert("Failed to clear cart.");
+      return;
+    }
+
+    window.dispatchEvent(new Event("cart-updated"));
+    loadCart();
   }
 
   async function checkout() {
@@ -72,14 +133,16 @@ export default function CartPage() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        items: cart.map((item) => ({
-          variantId: item.variantId,
-          qty: item.qty,
-        })),
+        fromSavedCart: true,
       }),
     });
 
     const data = await res.json();
+
+    if (res.status === 401) {
+      window.location.href = "/sign-in";
+      return;
+    }
 
     if (data.url) {
       window.location.href = data.url;
@@ -101,9 +164,17 @@ export default function CartPage() {
             <ShoppingCart className="w-10 h-10 text-jungle-300" />
             Your Cart
           </h1>
+
+          <p className="text-zinc-400 mt-3">
+            Your cart is saved to your account when you are signed in.
+          </p>
         </div>
 
-        {cart.length === 0 ? (
+        {pageLoading ? (
+          <div className="glass rounded-3xl p-12 text-center border border-jungle-900/60 text-zinc-400">
+            Loading cart...
+          </div>
+        ) : cart.length === 0 ? (
           <div className="glass rounded-3xl p-12 text-center border border-jungle-900/60">
             <p className="text-5xl mb-5">🛒</p>
 
@@ -112,7 +183,8 @@ export default function CartPage() {
             </h2>
 
             <p className="text-zinc-400 mb-8">
-              Add herbs, sea moss, honey, oils, or wellness products to your cart.
+              Add herbs, sea moss, honey, oils, or wellness products to your
+              cart.
             </p>
 
             <Link
@@ -130,7 +202,14 @@ export default function CartPage() {
                   key={item.variantId}
                   className="glass rounded-3xl p-5 border border-jungle-900/60 flex flex-col md:flex-row gap-5"
                 >
-                  <div className="relative w-full md:w-32 h-32 rounded-2xl overflow-hidden bg-black/30 border border-jungle-900/60">
+                  <Link
+                    href={
+                      item.productType === "WHOLESALE"
+                        ? "/dashboard/wholesale"
+                        : `/products/${item.slug || ""}`
+                    }
+                    className="relative w-full md:w-32 h-32 rounded-2xl overflow-hidden bg-black/30 border border-jungle-900/60"
+                  >
                     {item.image ? (
                       <Image
                         src={item.image}
@@ -143,12 +222,20 @@ export default function CartPage() {
                         🌿
                       </div>
                     )}
-                  </div>
+                  </Link>
 
                   <div className="flex-1">
-                    <h2 className="font-semibold text-xl">
-                      {item.name}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-semibold text-xl">
+                        {item.name}
+                      </h2>
+
+                      {item.productType === "WHOLESALE" && (
+                        <span className="rounded-full border border-jungle-700 bg-jungle-950 px-3 py-1 text-xs text-jungle-300">
+                          Wholesale
+                        </span>
+                      )}
+                    </div>
 
                     <p className="text-zinc-400 text-sm mt-1">
                       {item.variantLabel}
