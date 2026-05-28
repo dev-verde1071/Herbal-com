@@ -1,263 +1,244 @@
-import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
-  if (!stripe) {
-    return NextResponse.json(
-      { error: "Stripe is not configured." },
-      { status: 500 }
-    );
-  }
-
-  const body = await req.text();
-  const sig = req.headers.get("stripe-signature");
-
-  if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json(
-      { error: "Missing webhook signature." },
-      { status: 400 }
-    );
-  }
-
-  let event: Stripe.Event;
-
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: `Webhook Error: ${error.message}` },
-      { status: 400 }
-    );
-  }
+    if (!stripe) {
+      return new Response("Stripe not configured", { status: 500 });
+    }
 
-  try {
+    const body = await req.text();
+
+    const signature = (await headers()).get("stripe-signature");
+
+    if (!signature) {
+      return new Response("Missing stripe signature", { status: 400 });
+    }
+
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      return new Response("Missing webhook secret", { status: 500 });
+    }
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        body,
+        signature,
+        webhookSecret
+      );
+    } catch (error: any) {
+      console.error("Webhook verification failed:", error.message);
+
+      return new Response(`Webhook Error: ${error.message}`, {
+        status: 400,
+      });
+    }
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      const existing = await db.order.findUnique({
-        where: {
+      const metadata = session.metadata || {};
+
+      const customerDetails = session.customer_details;
+      const shipping = session.shipping_details;
+
+      const order = await db.order.create({
+        data: {
           stripeSessionId: session.id,
+          status: "PAID",
+          orderType: metadata.orderType || "RETAIL",
+          total: Number((session.amount_total || 0) / 100),
+          currency: session.currency || "usd",
+          email:
+            customerDetails?.email ||
+            session.customer_email ||
+            undefined,
+
+          userId: metadata.userId || undefined,
+
+          shippingName:
+            shipping?.name ||
+            customerDetails?.name ||
+            undefined,
+
+          shippingLine1:
+            shipping?.address?.line1 ||
+            undefined,
+
+          shippingLine2:
+            shipping?.address?.line2 ||
+            undefined,
+
+          shippingCity:
+            shipping?.address?.city ||
+            undefined,
+
+          shippingState:
+            shipping?.address?.state ||
+            undefined,
+
+          shippingPostal:
+            shipping?.address?.postal_code ||
+            undefined,
+
+          shippingCountry:
+            shipping?.address?.country ||
+            undefined,
+
+          metadata,
         },
       });
 
-      if (existing) {
-        return NextResponse.json({ received: true, duplicate: true });
+      if (metadata.type === "cart" && metadata.cart) {
+        try {
+          const cartItems = JSON.parse(metadata.cart);
+
+          for (const item of cartItems) {
+            const variant = await db.productVariant.findUnique({
+              where: {
+                id: item.variantId,
+              },
+              include: {
+                product: true,
+              },
+            });
+
+            if (!variant || !variant.product) continue;
+
+            const qty = Number(item.qty || 1);
+
+            await db.orderItem.create({
+              data: {
+                orderId: order.id,
+                productId: variant.product.id,
+                variantId: variant.id,
+                name: `${variant.product.name} - ${variant.label}`,
+                price: variant.price,
+                qty,
+                image:
+                  variant.images?.[0] ||
+                  variant.product.images?.[0] ||
+                  null,
+              },
+            });
+
+            await db.productVariant.update({
+              where: {
+                id: variant.id,
+              },
+              data: {
+                qty: {
+                  decrement: qty,
+                },
+              },
+            });
+          }
+
+          if (metadata.userId) {
+            const cart = await db.cart.findFirst({
+              where: {
+                userId: metadata.userId,
+              },
+            });
+
+            if (cart) {
+              await db.cartItem.deleteMany({
+                where: {
+                  cartId: cart.id,
+                },
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Cart metadata parse error:", error);
+        }
       }
 
-      const type = session.metadata?.type;
-      const total = (session.amount_total || 0) / 100;
-      const email =
-        session.customer_details?.email || session.customer_email || null;
-
-      const shipping = session.customer_details?.address;
-      const shippingName = session.customer_details?.name || null;
-
-      if (type === "cart") {
-        const cart = session.metadata?.cart
-          ? JSON.parse(session.metadata.cart)
-          : [];
-
-        const variantIds = cart.map((item: any) => item.variantId);
-
-        const variants = await db.productVariant.findMany({
+      if (metadata.type === "product" && metadata.variantId) {
+        const variant = await db.productVariant.findUnique({
           where: {
-            id: {
-              in: variantIds,
-            },
+            id: metadata.variantId,
           },
           include: {
             product: true,
           },
         });
 
-        const order = await db.order.create({
-          data: {
-            stripeSessionId: session.id,
-            status: "PAID",
-            total,
-            email,
-            shippingName,
-            shippingLine1: shipping?.line1 || null,
-            shippingLine2: shipping?.line2 || null,
-            shippingCity: shipping?.city || null,
-            shippingState: shipping?.state || null,
-            shippingPostal: shipping?.postal_code || null,
-            shippingCountry: shipping?.country || null,
-            shippingStatus: "NOT_CREATED",
-            metadata: {
-              stripePaymentStatus: session.payment_status,
-              type: "cart",
+        if (variant && variant.product) {
+          await db.orderItem.create({
+            data: {
+              orderId: order.id,
+              productId: variant.product.id,
+              variantId: variant.id,
+              name: `${variant.product.name} - ${variant.label}`,
+              price: variant.price,
+              qty: 1,
+              image:
+                variant.images?.[0] ||
+                variant.product.images?.[0] ||
+                null,
             },
-            items: {
-              create: cart.map((item: any) => {
-                const variant = variants.find(
-                  (v) => v.id === item.variantId
-                );
+          });
 
-                if (!variant) {
-                  return {
-                    name: "Unknown Product",
-                    price: 0,
-                    qty: Number(item.qty || 1),
-                  };
-                }
-
-                return {
-                  productId: variant.productId,
-                  variantId: variant.id,
-                  name: `${variant.product.name} - ${variant.label}`,
-                  price: variant.price,
-                  qty: Number(item.qty || 1),
-                  image:
-                    variant.images?.[0] ||
-                    variant.product.images?.[0] ||
-                    null,
-                };
-              }),
+          await db.productVariant.update({
+            where: {
+              id: variant.id,
             },
+            data: {
+              qty: {
+                decrement: 1,
+              },
+            },
+          });
+        }
+      }
+
+      if (metadata.type === "retreat" && metadata.retreatId) {
+        const retreat = await db.retreat.findUnique({
+          where: {
+            id: metadata.retreatId,
           },
         });
 
-        for (const item of cart) {
-          const variant = variants.find((v) => v.id === item.variantId);
-          const qty = Number(item.qty || 1);
-
-          if (variant && variant.qty > 0) {
-            await db.productVariant.update({
-              where: { id: variant.id },
-              data: {
-                qty: Math.max(0, variant.qty - qty),
-                inStock: variant.qty - qty > 0,
-              },
-            });
-          }
-        }
-
-        console.log("Cart order saved:", order.id);
-      }
-
-      if (type === "product") {
-        const variantId = session.metadata?.variantId;
-        const productId = session.metadata?.productId;
-
-        if (variantId) {
-          const variant = await db.productVariant.findUnique({
-            where: { id: variantId },
-            include: { product: true },
+        if (retreat) {
+          await db.orderItem.create({
+            data: {
+              orderId: order.id,
+              retreatId: retreat.id,
+              name: retreat.name,
+              price: retreat.price,
+              qty: 1,
+              image: retreat.images?.[0] || null,
+            },
           });
 
-          if (variant) {
-            await db.order.create({
-              data: {
-                stripeSessionId: session.id,
-                status: "PAID",
-                total,
-                email,
-                shippingName,
-                shippingLine1: shipping?.line1 || null,
-                shippingLine2: shipping?.line2 || null,
-                shippingCity: shipping?.city || null,
-                shippingState: shipping?.state || null,
-                shippingPostal: shipping?.postal_code || null,
-                shippingCountry: shipping?.country || null,
-                shippingStatus: "NOT_CREATED",
-                metadata: {
-                  stripePaymentStatus: session.payment_status,
-                  type: "product",
-                },
-                items: {
-                  create: {
-                    productId,
-                    variantId,
-                    name: `${variant.product.name} - ${variant.label}`,
-                    price: variant.price,
-                    qty: 1,
-                    image:
-                      variant.images?.[0] ||
-                      variant.product.images?.[0] ||
-                      null,
-                  },
-                },
+          await db.retreat.update({
+            where: {
+              id: retreat.id,
+            },
+            data: {
+              spotsLeft: {
+                decrement: 1,
               },
-            });
-
-            if (variant.qty > 0) {
-              await db.productVariant.update({
-                where: { id: variant.id },
-                data: {
-                  qty: Math.max(0, variant.qty - 1),
-                  inStock: variant.qty - 1 > 0,
-                },
-              });
-            }
-          }
-        }
-      }
-
-      if (type === "retreat") {
-        const retreatId = session.metadata?.retreatId;
-
-        if (retreatId) {
-          const retreat = await db.retreat.findUnique({
-            where: { id: retreatId },
+            },
           });
-
-          if (retreat) {
-            await db.order.create({
-              data: {
-                stripeSessionId: session.id,
-                status: "PAID",
-                total,
-                email,
-                shippingName,
-                shippingLine1: shipping?.line1 || null,
-                shippingLine2: shipping?.line2 || null,
-                shippingCity: shipping?.city || null,
-                shippingState: shipping?.state || null,
-                shippingPostal: shipping?.postal_code || null,
-                shippingCountry: shipping?.country || null,
-                shippingStatus: "NOT_REQUIRED",
-                metadata: {
-                  stripePaymentStatus: session.payment_status,
-                  type: "retreat",
-                },
-                items: {
-                  create: {
-                    retreatId,
-                    name: retreat.name,
-                    price: retreat.price,
-                    qty: 1,
-                    image: retreat.images[0],
-                  },
-                },
-              },
-            });
-
-            await db.retreat.update({
-              where: { id: retreat.id },
-              data: {
-                spotsLeft: Math.max(0, retreat.spotsLeft - 1),
-                inStock: retreat.spotsLeft - 1 > 0,
-              },
-            });
-          }
         }
       }
     }
 
-    return NextResponse.json({ received: true });
+    return new Response("OK", { status: 200 });
   } catch (error) {
-    console.error("Webhook handler error:", error);
+    console.error("Webhook route error:", error);
 
-    return NextResponse.json(
-      { error: "Webhook handler failed." },
-      { status: 500 }
-    );
+    return new Response("Webhook error", {
+      status: 500,
+    });
   }
 }
