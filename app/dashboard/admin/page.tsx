@@ -39,6 +39,12 @@ const cards = [
     desc: "Update banner text, colors, emoji, active status, and scroll speed",
     emoji: "📢",
   },
+  {
+  title: "Customers",
+  href: "/dashboard/admin/customers",
+  desc: "View retail and wholesale customers, saved carts, and order history",
+  emoji: "👥",
+  },
 ];
 
 export default async function AdminDashboardPage() {
