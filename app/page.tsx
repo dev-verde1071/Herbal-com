@@ -48,9 +48,7 @@ export default async function HomePage() {
           <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-bold leading-tight mb-8">
             Rare Herbs.
             <br />
-            <span className="gold-shimmer">
-              Real Communities.
-            </span>
+            <span className="gold-shimmer">Real Communities.</span>
           </h1>
 
           <p className="max-w-2xl mx-auto text-lg md:text-xl text-zinc-300 leading-relaxed mb-10">
@@ -131,6 +129,10 @@ export default async function HomePage() {
                 <h2 className="font-display text-4xl md:text-5xl">
                   Featured on Herbal Communities
                 </h2>
+
+                <p className="text-zinc-400 mt-3">
+                  Showing up to 6 highlighted retail products.
+                </p>
               </div>
 
               <Link
@@ -144,7 +146,7 @@ export default async function HomePage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {featuredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product as any} />
               ))}
             </div>
           </div>
