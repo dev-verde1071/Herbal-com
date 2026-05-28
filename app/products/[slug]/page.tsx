@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import AddToCartButton from "@/components/AddToCartButton";
+import BuyNowButton from "@/components/BuyNowButton";
 import ProductImageGallery from "@/components/ProductImageGallery";
 import { formatPrice, CATEGORY_LABELS, CATEGORY_ICONS } from "@/lib/utils";
 
@@ -66,81 +67,57 @@ export default async function ProductPage({
                 const variantImage =
                   variant.images?.[0] || product.images?.[0] || null;
 
+                const unavailable = !variant.inStock || variant.qty <= 0;
+
                 return (
                   <div
                     key={variant.id}
                     className="glass rounded-2xl p-5 border border-jungle-900/60"
                   >
-                    <div>
-                      <h3 className="font-semibold text-lg">
-                        {variant.label}
-                      </h3>
+                    <h3 className="font-semibold text-lg">
+                      {variant.label}
+                    </h3>
 
-                      <div className="flex items-center gap-3 mt-1">
-                        <p
-                          className="text-2xl font-bold"
-                          style={{ color: "#c89f4f" }}
-                        >
-                          {formatPrice(variant.price)}
+                    <div className="flex items-center gap-3 mt-1">
+                      <p
+                        className="text-2xl font-bold"
+                        style={{ color: "#c89f4f" }}
+                      >
+                        {formatPrice(variant.price)}
+                      </p>
+
+                      {variant.compareAt && (
+                        <p className="text-zinc-500 line-through">
+                          {formatPrice(variant.compareAt)}
                         </p>
+                      )}
+                    </div>
 
-                        {variant.compareAt && (
-                          <p className="text-zinc-500 line-through">
-                            {formatPrice(variant.compareAt)}
-                          </p>
-                        )}
-                      </div>
+                    <div className="mt-2 text-sm">
+                      {!unavailable ? (
+                        <span className="text-green-400">
+                          ✓ In stock · {variant.qty} available
+                        </span>
+                      ) : (
+                        <span className="text-red-400">Out of stock</span>
+                      )}
+                    </div>
 
-                      <div className="mt-2 text-sm">
-                        {variant.inStock && variant.qty > 0 ? (
-                          <span className="text-green-400">
-                            ✓ In stock · {variant.qty} available
-                          </span>
-                        ) : (
-                          <span className="text-red-400">Out of stock</span>
-                        )}
-                      </div>
+                    <div className="mt-5 grid sm:grid-cols-2 gap-3">
+                      <AddToCartButton
+                        productId={product.id}
+                        variantId={variant.id}
+                        name={product.name}
+                        variantLabel={variant.label}
+                        price={variant.price}
+                        image={variantImage}
+                        disabled={unavailable}
+                      />
 
-                      <div className="mt-5 grid sm:grid-cols-2 gap-3">
-                        <AddToCartButton
-                          productId={product.id}
-                          variantId={variant.id}
-                          name={product.name}
-                          variantLabel={variant.label}
-                          price={variant.price}
-                          image={variantImage}
-                          disabled={!variant.inStock || variant.qty <= 0}
-                        />
-
-                        <form action="/api/checkout" method="POST">
-                          <button
-                            type="button"
-                            disabled={!variant.inStock || variant.qty <= 0}
-                            onClick={async () => {
-                              const res = await fetch("/api/checkout", {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
-                                  variantId: variant.id,
-                                }),
-                              });
-
-                              const data = await res.json();
-
-                              if (data.url) {
-                                window.location.href = data.url;
-                              } else {
-                                alert(data.error || "Checkout failed.");
-                              }
-                            }}
-                            className="w-full rounded-xl bg-black/30 hover:bg-jungle-900/60 border border-jungle-900/60 py-3.5 font-semibold transition disabled:opacity-50"
-                          >
-                            Buy Now
-                          </button>
-                        </form>
-                      </div>
+                      <BuyNowButton
+                        variantId={variant.id}
+                        disabled={unavailable}
+                      />
                     </div>
                   </div>
                 );
