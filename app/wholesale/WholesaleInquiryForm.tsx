@@ -10,11 +10,13 @@ export default function WholesaleInquiryForm() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
+    const formElement = e.currentTarget;
+
     setLoading(true);
     setSuccess(false);
     setError("");
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(formElement);
 
     const payload = {
       name: String(formData.get("name") || ""),
@@ -41,7 +43,7 @@ export default function WholesaleInquiryForm() {
       }
 
       setSuccess(true);
-      e.currentTarget.reset();
+      formElement.reset();
     } catch {
       setError("Network error. Please try again.");
     } finally {
