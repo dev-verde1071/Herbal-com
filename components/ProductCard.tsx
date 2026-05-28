@@ -35,7 +35,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const isWholesale = product.type === "WHOLESALE";
 
   const href = isWholesale
-    ? "/dashboard/wholesale"
+    ? `/dashboard/wholesale/products/${product.slug}`
     : `/products/${product.slug}`;
 
   const categoryLabel = CATEGORY_LABELS[product.category] || product.category;
