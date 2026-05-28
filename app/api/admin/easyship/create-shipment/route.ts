@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { resend, FROM_EMAIL } from "@/lib/resend";
+import TrackingEmail from "@/emails/TrackingEmail";
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
@@ -136,15 +138,29 @@ export async function POST(req: Request) {
       data?.shipment?.tracking_number ||
       data?.tracking_number ||
       data?.tracking?.number ||
+      data?.data?.tracking_number ||
       null;
+
+    const courierName =
+      data?.shipment?.selected_courier?.name ||
+      data?.shipment?.courier?.name ||
+      data?.courier?.name ||
+      data?.data?.courier?.name ||
+      data?.data?.selected_courier?.name ||
+      "Easyship";
 
     const updated = await db.order.update({
       where: { id: order.id },
       data: {
         easyshipShipmentId: shipmentId,
         easyshipLabelUrl: labelUrl,
-        trackingNumber,
-        shippingStatus: labelUrl ? "LABEL_CREATED" : "SHIPMENT_CREATED",
+        trackingNumber: trackingNumber || order.trackingNumber,
+        trackingCourier: trackingNumber ? courierName : order.trackingCourier,
+        shippingStatus: labelUrl
+          ? "LABEL_CREATED"
+          : trackingNumber
+            ? "TRACKING_ADDED"
+            : "SHIPMENT_CREATED",
         metadata: {
           ...(typeof order.metadata === "object" && order.metadata
             ? (order.metadata as any)
@@ -153,6 +169,24 @@ export async function POST(req: Request) {
         },
       },
     });
+
+    if (resend && order.email && trackingNumber) {
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: order.email,
+          subject: "Your Herbal Communities Order Is On The Way",
+          react: TrackingEmail({
+            customerName: order.shippingName,
+            trackingNumber,
+            trackingCourier: courierName,
+            orderId: order.id,
+          }),
+        });
+      } catch (emailError) {
+        console.error("Easyship tracking email error:", emailError);
+      }
+    }
 
     return NextResponse.json({
       success: true,
