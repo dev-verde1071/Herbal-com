@@ -16,8 +16,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  carts                 Cart[]
   wholesaleApplications WholesaleApplication[]
-  orders               Order[]
+  orders                Order[]
 }
 
 enum Role {
@@ -44,6 +45,7 @@ model Product {
 
   variants   ProductVariant[]
   orderItems OrderItem[]
+  cartItems  CartItem[]
 }
 
 enum ProductType {
@@ -69,6 +71,33 @@ model ProductVariant {
 
   product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
+  cartItems  CartItem[]
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  variantId String
+  qty       Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, variantId])
 }
 
 model Retreat {
@@ -137,6 +166,7 @@ model Order {
   userId          String?
   stripeSessionId String?     @unique
   status          OrderStatus @default(PENDING)
+  orderType       String      @default("RETAIL")
   total           Float
   currency        String      @default("usd")
   email           String?
@@ -146,20 +176,22 @@ model Order {
   shippingLine2   String?
   shippingCity    String?
   shippingState   String?
-  shippingPostal   String?
+  shippingPostal  String?
   shippingCountry String?
 
   easyshipShipmentId String?
   easyshipLabelUrl   String?
   trackingNumber     String?
+  trackingCourier    String?
+  trackingEdited     Boolean @default(false)
   shippingStatus     String? @default("NOT_CREATED")
 
   metadata        Json?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  user  User?       @relation(fields: [userId], references: [id])
-  items OrderItem[]
+  user            User?       @relation(fields: [userId], references: [id])
+  items           OrderItem[]
 }
 
 enum OrderStatus {
@@ -180,9 +212,10 @@ model OrderItem {
   price     Float
   qty       Int      @default(1)
   image     String?
+  createdAt DateTime @default(now())
 
-  order   Order           @relation(fields: [orderId], references: [id])
-  product Product?        @relation(fields: [productId], references: [id])
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
-  retreat Retreat?        @relation(fields: [retreatId], references: [id])
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product?        @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  retreat   Retreat?        @relation(fields: [retreatId], references: [id])
 }
