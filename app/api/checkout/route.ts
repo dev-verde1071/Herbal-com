@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 
@@ -33,10 +34,94 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { items, variantId, retreatId } = body;
+    const { items, variantId, retreatId, fromSavedCart } = body;
+
+    const { userId } = await auth();
 
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+    if (fromSavedCart) {
+      if (!userId) {
+        return NextResponse.json(
+          { error: "Please sign in before checking out." },
+          { status: 401 }
+        );
+      }
+
+      const cart = await db.cart.findFirst({
+        where: { userId },
+        include: {
+          items: {
+            include: {
+              product: true,
+              variant: true,
+            },
+          },
+        },
+      });
+
+      if (!cart || cart.items.length === 0) {
+        return NextResponse.json(
+          { error: "Your cart is empty." },
+          { status: 400 }
+        );
+      }
+
+      const lineItems = cart.items.map((item) => {
+        if (!item.variant.inStock || item.variant.qty <= 0) {
+          throw new Error(`${item.product.name} is unavailable.`);
+        }
+
+        if (item.qty > item.variant.qty) {
+          throw new Error(
+            `Only ${item.variant.qty} available for ${item.product.name}.`
+          );
+        }
+
+        return {
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(item.variant.price * 100),
+            product_data: {
+              name: `${item.product.name} - ${item.variant.label}`,
+              description: item.product.description || undefined,
+            },
+          },
+          quantity: item.qty,
+        };
+      });
+
+      const orderType = cart.items.some((item) => item.product.type === "WHOLESALE")
+        ? "WHOLESALE"
+        : "RETAIL";
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/cart`,
+        customer_creation: "always",
+        shipping_address_collection: {
+          allowed_countries: ["US"],
+        },
+        shipping_options: [STANDARD_SHIPPING],
+        line_items: lineItems,
+        metadata: {
+          type: "cart",
+          orderType,
+          userId,
+          cartId: cart.id,
+          cart: JSON.stringify(
+            cart.items.map((item) => ({
+              variantId: item.variantId,
+              qty: item.qty,
+            }))
+          ).slice(0, 450),
+        },
+      });
+
+      return NextResponse.json({ url: session.url });
+    }
 
     if (Array.isArray(items) && items.length > 0) {
       const variantIds = items.map((item: any) => item.variantId);
@@ -85,6 +170,10 @@ export async function POST(req: Request) {
         };
       });
 
+      const orderType = variants.some((variant) => variant.product.type === "WHOLESALE")
+        ? "WHOLESALE"
+        : "RETAIL";
+
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -97,6 +186,8 @@ export async function POST(req: Request) {
         line_items: lineItems,
         metadata: {
           type: "cart",
+          orderType,
+          userId: userId || "",
           cart: JSON.stringify(cartMetadata).slice(0, 450),
         },
       });
@@ -143,6 +234,9 @@ export async function POST(req: Request) {
           variantId: variant.id,
           productId: variant.product.id,
           type: "product",
+          orderType:
+            variant.product.type === "WHOLESALE" ? "WHOLESALE" : "RETAIL",
+          userId: userId || "",
         },
       });
 
@@ -182,6 +276,8 @@ export async function POST(req: Request) {
         metadata: {
           retreatId: retreat.id,
           type: "retreat",
+          orderType: "RETREAT",
+          userId: userId || "",
         },
       });
 
