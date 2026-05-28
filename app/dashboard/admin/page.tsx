@@ -29,6 +29,12 @@ export default async function AdminDashboardPage() {
       emoji: "🍯",
     },
     {
+      title: "Wholesale Products",
+      href: "/dashboard/admin/wholesale-products",
+      desc: "Manage wholesale-only products and pricing",
+      emoji: "📦",
+    },
+    {
       title: "Banner",
       href: "/dashboard/admin/banner",
       desc: "Manage top announcement banner",
