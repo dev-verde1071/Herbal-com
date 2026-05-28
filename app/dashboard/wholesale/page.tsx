@@ -1,51 +1,87 @@
+export const dynamic = "force-dynamic";
+
+import Link from "next/link";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getCurrentDbUser, syncUser } from "@/lib/auth";
+import { ArrowRight } from "lucide-react";
 import { db } from "@/lib/db";
-import WholesaleOrderButton from "./WholesaleOrderButton";
-import { formatPrice } from "@/lib/utils";
+import ProductCard from "@/components/ProductCard";
 
 export default async function WholesaleDashboardPage() {
-  await syncUser();
+  const { userId } = await auth();
 
-  const user = await getCurrentDbUser();
-
-  if (!user) {
+  if (!userId) {
     redirect("/sign-in");
+  }
+
+  const user = await currentUser();
+  const email = user?.emailAddresses?.[0]?.emailAddress;
+
+  if (!email) {
+    redirect("/wholesale");
   }
 
   const application = await db.wholesaleApplication.findFirst({
     where: {
-      email: user.email,
+      OR: [
+        {
+          userId,
+        },
+        {
+          email,
+        },
+      ],
+      status: "APPROVED",
+      archived: false,
+    },
+    orderBy: {
+      createdAt: "desc",
     },
   });
 
-  if (!application || application.status !== "APPROVED") {
+  if (!application) {
     return (
-      <div className="min-h-screen py-12 px-6">
-        <div className="max-w-3xl mx-auto glass rounded-3xl p-10 text-center border border-jungle-900/60">
-          <span className="text-6xl block mb-6">
-            🍯
-          </span>
+      <div className="min-h-screen py-16 px-6">
+        <div className="max-w-3xl mx-auto glass rounded-3xl p-10 border border-jungle-900/60 text-center">
+          <p className="text-5xl mb-6">🌿</p>
 
           <h1 className="font-display text-4xl mb-4">
             Wholesale Access Pending
           </h1>
 
-          <p className="text-zinc-300 leading-relaxed">
-            Your wholesale access has not been approved yet. Please submit a
-            wholesale application or wait for approval.
+          <p className="text-zinc-300 leading-relaxed mb-8">
+            Your account does not currently have approved wholesale access.
+            Please submit a wholesale application or wait for approval from the
+            Herbal Communities team.
           </p>
+
+          <Link
+            href="/wholesale"
+            className="inline-flex items-center gap-2 rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-8 py-4 font-semibold transition"
+          >
+            Apply for Wholesale
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
     );
   }
 
+  if (!application.userId) {
+    await db.wholesaleApplication.update({
+      where: {
+        id: application.id,
+      },
+      data: {
+        userId,
+      },
+    });
+  }
+
   const products = await db.product.findMany({
     where: {
       active: true,
-      type: {
-        in: ["WHOLESALE", "BOTH"],
-      },
+      type: "WHOLESALE",
     },
     include: {
       variants: {
@@ -64,78 +100,27 @@ export default async function WholesaleDashboardPage() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-12">
           <p className="uppercase tracking-[0.3em] text-jungle-300 text-xs mb-4">
-            Wholesale Dashboard
+            Wholesale Access Approved
           </p>
 
-          <h1 className="font-display text-5xl mb-4">
-            Welcome, {application.business}
+          <h1 className="font-display text-5xl">
+            Wholesale Products
           </h1>
 
-          <p className="text-zinc-400">
-            Approved wholesale products and bulk ordering options.
+          <p className="text-zinc-400 mt-3 max-w-2xl">
+            Welcome, {application.name}. Browse wholesale-only products and
+            pricing available to approved Herbal Communities partners.
           </p>
         </div>
 
         {products.length === 0 ? (
-          <div className="glass rounded-3xl p-12 text-center text-zinc-400">
+          <div className="glass rounded-3xl p-12 text-center border border-jungle-900/60 text-zinc-400">
             No wholesale products are available yet.
           </div>
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
             {products.map((product) => (
-              <div
-                key={product.id}
-                className="glass rounded-3xl p-6 border border-jungle-900/60"
-              >
-                <h2 className="font-display text-3xl mb-3">
-                  {product.name}
-                </h2>
-
-                {product.description && (
-                  <p className="text-zinc-400 text-sm leading-relaxed mb-5 line-clamp-3">
-                    {product.description}
-                  </p>
-                )}
-
-                <div className="space-y-4">
-                  {product.variants.map((variant) => (
-                    <div
-                      key={variant.id}
-                      className="rounded-2xl bg-black/20 border border-jungle-900/60 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                          <p className="font-semibold">
-                            {variant.label}
-                          </p>
-
-                          <p
-                            className="font-bold"
-                            style={{ color: "#c89f4f" }}
-                          >
-                            {formatPrice(variant.price)}
-                          </p>
-                        </div>
-
-                        <span
-                          className={`text-xs ${
-                            variant.inStock
-                              ? "text-green-400"
-                              : "text-red-400"
-                          }`}
-                        >
-                          {variant.inStock ? "In Stock" : "Sold Out"}
-                        </span>
-                      </div>
-
-                      <WholesaleOrderButton
-                        variantId={variant.id}
-                        disabled={!variant.inStock}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ProductCard key={product.id} product={product as any} />
             ))}
           </div>
         )}
