@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PRODUCT_CATEGORIES } from "@/lib/utils";
 
+type ProductMode = "RETAIL" | "WHOLESALE";
+
 type Variant = {
   id?: string;
   label: string;
@@ -29,7 +31,13 @@ type ProductFormData = {
   variants?: Variant[];
 };
 
-export default function ProductForm({ product }: { product?: ProductFormData }) {
+export default function ProductForm({
+  product,
+  productMode = "RETAIL",
+}: {
+  product?: ProductFormData;
+  productMode?: ProductMode;
+}) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
@@ -37,13 +45,15 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
   const [draggingVariant, setDraggingVariant] = useState<number | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  const isWholesale = productMode === "WHOLESALE";
+
   const [form, setForm] = useState<ProductFormData>({
     id: product?.id,
     name: product?.name || "",
     description: product?.description || "",
     category: product?.category || "herbs",
     subcategory: product?.subcategory || "",
-    type: product?.type || "RETAIL",
+    type: product?.type || productMode,
     images: Array.isArray(product?.images) ? product.images : [],
     active: product?.active ?? true,
     featured: product?.featured ?? false,
@@ -62,7 +72,7 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
           }))
         : [
             {
-              label: "4oz",
+              label: isWholesale ? "Wholesale Unit" : "4oz",
               price: "",
               compareAt: "",
               sku: "",
@@ -125,6 +135,7 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
     }
 
     setTimeout(() => setUploadProgress(0), 800);
+
     return results;
   }
 
@@ -146,7 +157,10 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
       images: [...(updated[index].images || []), ...uploaded],
     };
 
-    setForm({ ...form, variants: updated });
+    setForm({
+      ...form,
+      variants: updated,
+    });
   }
 
   function removeMainImage(index: number) {
@@ -166,17 +180,24 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
       ),
     };
 
-    setForm({ ...form, variants: updated });
+    setForm({
+      ...form,
+      variants: updated,
+    });
   }
 
   function moveMainImage(from: number, to: number) {
     const images = [...(form.images || [])];
+
     if (to < 0 || to >= images.length) return;
 
     const [moved] = images.splice(from, 1);
     images.splice(to, 0, moved);
 
-    setForm({ ...form, images });
+    setForm({
+      ...form,
+      images,
+    });
   }
 
   function moveVariantImage(variantIndex: number, from: number, to: number) {
@@ -193,7 +214,10 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
       images,
     };
 
-    setForm({ ...form, variants: updated });
+    setForm({
+      ...form,
+      variants: updated,
+    });
   }
 
   function setMainImage(index: number) {
@@ -212,7 +236,10 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
       [key]: value,
     };
 
-    setForm({ ...form, variants: updated });
+    setForm({
+      ...form,
+      variants: updated,
+    });
   }
 
   function addVariant() {
@@ -243,10 +270,12 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+
     setLoading(true);
 
     const payload = {
       ...form,
+      type: productMode,
       images: Array.isArray(form.images) ? form.images : [],
       variants: (form.variants || []).map((variant) => ({
         ...variant,
@@ -265,14 +294,21 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
 
     const res = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload),
     });
 
     setLoading(false);
 
     if (res.ok) {
-      router.push("/dashboard/admin/products");
+      router.push(
+        isWholesale
+          ? "/dashboard/admin/wholesale-products"
+          : "/dashboard/admin/products"
+      );
+
       router.refresh();
     } else {
       alert("Failed to save product.");
@@ -284,22 +320,48 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
       onSubmit={submit}
       className="glass rounded-3xl p-8 border border-jungle-900/60 space-y-8"
     >
+      <div className="rounded-2xl bg-black/20 border border-jungle-900/60 p-4">
+        <p className="text-sm text-zinc-400">
+          Product Type
+        </p>
+
+        <p className="font-semibold text-jungle-300 mt-1">
+          {isWholesale ? "Wholesale Product" : "Retail Product"}
+        </p>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
         <div>
-          <label className="block text-sm text-zinc-300 mb-2">Product Name</label>
+          <label className="block text-sm text-zinc-300 mb-2">
+            Product Name
+          </label>
+
           <input
             required
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                name: e.target.value,
+              })
+            }
             className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm text-zinc-300 mb-2">Category</label>
+          <label className="block text-sm text-zinc-300 mb-2">
+            Category
+          </label>
+
           <select
             value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                category: e.target.value,
+              })
+            }
             className="w-full rounded-2xl bg-jungle-950 text-white border border-jungle-700 px-4 py-3 outline-none focus:border-jungle-400"
           >
             {PRODUCT_CATEGORIES.map((category) => (
@@ -315,10 +377,18 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
         </div>
 
         <div>
-          <label className="block text-sm text-zinc-300 mb-2">Subcategory</label>
+          <label className="block text-sm text-zinc-300 mb-2">
+            Subcategory
+          </label>
+
           <input
             value={form.subcategory || ""}
-            onChange={(e) => setForm({ ...form, subcategory: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                subcategory: e.target.value,
+              })
+            }
             placeholder="Example: Roots, Oils, Honey, Sea Moss Gel"
             className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
           />
@@ -326,55 +396,65 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
       </div>
 
       <div>
-        <label className="block text-sm text-zinc-300 mb-2">Description</label>
+        <label className="block text-sm text-zinc-300 mb-2">
+          Description
+        </label>
+
         <textarea
           rows={5}
           value={form.description || ""}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              description: e.target.value,
+            })
+          }
           className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
         />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm text-zinc-300 mb-2">Product Type</label>
-          <select
-            value={form.type}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                type: e.target.value as ProductFormData["type"],
-              })
-            }
-            className="w-full rounded-2xl bg-jungle-950 text-white border border-jungle-700 px-4 py-3 outline-none focus:border-jungle-400"
-          >
-            <option value="RETAIL">Retail</option>
-            <option value="WHOLESALE">Wholesale</option>
-            <option value="BOTH">Both</option>
-          </select>
-        </div>
-
-        <label className="flex items-center gap-3 mt-8">
+      <div className="grid lg:grid-cols-2 gap-6">
+        <label className="flex items-center gap-3 rounded-2xl bg-black/20 border border-jungle-900/60 px-5 py-4">
           <input
             type="checkbox"
             checked={form.active}
-            onChange={(e) => setForm({ ...form, active: e.target.checked })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                active: e.target.checked,
+              })
+            }
           />
-          <span className="text-sm text-zinc-300">Active on product page</span>
+
+          <span className="text-sm text-zinc-300">
+            Active on {isWholesale ? "wholesale" : "product"} page
+          </span>
         </label>
 
-        <label className="flex items-center gap-3 mt-8">
-          <input
-            type="checkbox"
-            checked={form.featured}
-            onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-          />
-          <span className="text-sm text-zinc-300">Featured on homepage</span>
-        </label>
+        {!isWholesale && (
+          <label className="flex items-center gap-3 rounded-2xl bg-black/20 border border-jungle-900/60 px-5 py-4">
+            <input
+              type="checkbox"
+              checked={form.featured}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  featured: e.target.checked,
+                })
+              }
+            />
+
+            <span className="text-sm text-zinc-300">
+              Featured on homepage
+            </span>
+          </label>
+        )}
       </div>
 
       <section>
-        <label className="block text-sm text-zinc-300 mb-2">Product Images</label>
+        <label className="block text-sm text-zinc-300 mb-2">
+          Product Images
+        </label>
 
         <div
           onDragOver={(e) => {
@@ -394,9 +474,11 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
           }`}
         >
           <p className="text-4xl mb-3">📸</p>
+
           <p className="font-semibold text-white mb-2">
             Drag and drop product images here
           </p>
+
           <p className="text-sm text-zinc-400 mb-5">
             Images are compressed before saving. First image is the main product image.
           </p>
@@ -422,6 +504,7 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
+
               <p className="text-xs text-zinc-400 mt-2">
                 Processing images... {uploadProgress}%
               </p>
@@ -440,8 +523,13 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                 }
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
-                  const from = Number(e.dataTransfer.getData("main-image-index"));
-                  if (!Number.isNaN(from)) moveMainImage(from, index);
+                  const from = Number(
+                    e.dataTransfer.getData("main-image-index")
+                  );
+
+                  if (!Number.isNaN(from)) {
+                    moveMainImage(from, index);
+                  }
                 }}
                 className="relative rounded-2xl overflow-hidden border border-jungle-900/60 bg-black/30 cursor-grab"
               >
@@ -471,6 +559,22 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
 
                 <button
                   type="button"
+                  onClick={() => moveMainImage(index, index - 1)}
+                  className="absolute top-2 right-16 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
+                >
+                  ←
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => moveMainImage(index, index + 1)}
+                  className="absolute top-2 right-9 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
+                >
+                  →
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => removeMainImage(index)}
                   className="absolute top-2 right-2 rounded-lg bg-red-900/80 hover:bg-red-800 text-white text-xs px-2 py-1"
                 >
@@ -484,7 +588,9 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
 
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-2xl">Variants</h3>
+          <h3 className="font-display text-2xl">
+            {isWholesale ? "Wholesale Variants" : "Variants"}
+          </h3>
 
           <button
             type="button"
@@ -519,16 +625,20 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                 <input
                   placeholder="Label"
                   value={variant.label}
-                  onChange={(e) => updateVariant(index, "label", e.target.value)}
+                  onChange={(e) =>
+                    updateVariant(index, "label", e.target.value)
+                  }
                   className="rounded-xl bg-black/20 border border-jungle-900/60 px-3 py-2"
                 />
 
                 <input
-                  placeholder="Price"
+                  placeholder={isWholesale ? "Wholesale Price" : "Price"}
                   type="number"
                   step="0.01"
                   value={variant.price}
-                  onChange={(e) => updateVariant(index, "price", e.target.value)}
+                  onChange={(e) =>
+                    updateVariant(index, "price", e.target.value)
+                  }
                   className="rounded-xl bg-black/20 border border-jungle-900/60 px-3 py-2"
                 />
 
@@ -567,6 +677,7 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                     updateVariant(index, "inStock", e.target.checked)
                   }
                 />
+
                 <span className="text-sm text-zinc-300">
                   In Stock / available for purchase
                 </span>
@@ -595,6 +706,7 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                   }`}
                 >
                   <p className="text-2xl mb-2">🖼️</p>
+
                   <p className="text-sm text-zinc-300 mb-3">
                     Drag variant images here or choose files.
                   </p>
@@ -621,17 +733,20 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                       <div
                         key={`${image}-${imageIndex}`}
                         draggable
-                        onDragStart={(e) =>
+                        onDragStart={(e) => {
                           e.dataTransfer.setData(
                             `variant-image-index-${index}`,
                             String(imageIndex)
-                          )
-                        }
+                          );
+                        }}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => {
                           const from = Number(
-                            e.dataTransfer.getData(`variant-image-index-${index}`)
+                            e.dataTransfer.getData(
+                              `variant-image-index-${index}`
+                            )
                           );
+
                           if (!Number.isNaN(from)) {
                             moveVariantImage(index, from, imageIndex);
                           }
@@ -651,12 +766,34 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
                         ) : (
                           <button
                             type="button"
-                            onClick={() => setVariantMainImage(index, imageIndex)}
+                            onClick={() =>
+                              setVariantMainImage(index, imageIndex)
+                            }
                             className="absolute bottom-2 left-2 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
                           >
                             Set Main
                           </button>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moveVariantImage(index, imageIndex, imageIndex - 1)
+                          }
+                          className="absolute top-2 right-16 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
+                        >
+                          ←
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moveVariantImage(index, imageIndex, imageIndex + 1)
+                          }
+                          className="absolute top-2 right-9 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
+                        >
+                          →
+                        </button>
 
                         <button
                           type="button"
@@ -679,7 +816,11 @@ export default function ProductForm({ product }: { product?: ProductFormData }) 
         disabled={loading}
         className="rounded-2xl bg-jungle-600 hover:bg-jungle-500 disabled:opacity-50 px-8 py-4 font-semibold"
       >
-        {loading ? "Saving..." : "Save Product"}
+        {loading
+          ? "Saving..."
+          : isWholesale
+            ? "Save Wholesale Product"
+            : "Save Retail Product"}
       </button>
     </form>
   );
