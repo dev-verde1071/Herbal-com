@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { getOrCreateDbUser } from "@/lib/currentUser";
 
 async function getOrCreateCart(userId: string) {
   let cart = await db.cart.findFirst({
@@ -34,6 +35,21 @@ async function getOrCreateCart(userId: string) {
   return cart;
 }
 
+function mapCartItems(cart: any) {
+  return cart.items.map((item: any) => ({
+    id: item.id,
+    productId: item.productId,
+    variantId: item.variantId,
+    name: item.product.name,
+    variantLabel: item.variant.label,
+    price: item.variant.price,
+    image: item.variant.images?.[0] || item.product.images?.[0] || null,
+    qty: item.qty,
+    productType: item.product.type,
+    slug: item.product.slug,
+  }));
+}
+
 export async function GET() {
   const { userId } = await auth();
 
@@ -41,21 +57,16 @@ export async function GET() {
     return NextResponse.json({ items: [] });
   }
 
-  const cart = await getOrCreateCart(userId);
+  const dbUser = await getOrCreateDbUser();
+
+  if (!dbUser) {
+    return NextResponse.json({ items: [] });
+  }
+
+  const cart = await getOrCreateCart(dbUser.id);
 
   return NextResponse.json({
-    items: cart.items.map((item) => ({
-      id: item.id,
-      productId: item.productId,
-      variantId: item.variantId,
-      name: item.product.name,
-      variantLabel: item.variant.label,
-      price: item.variant.price,
-      image: item.variant.images?.[0] || item.product.images?.[0] || null,
-      qty: item.qty,
-      productType: item.product.type,
-      slug: item.product.slug,
-    })),
+    items: mapCartItems(cart),
   });
 }
 
@@ -70,6 +81,15 @@ export async function POST(req: Request) {
   }
 
   try {
+    const dbUser = await getOrCreateDbUser();
+
+    if (!dbUser) {
+      return NextResponse.json(
+        { error: "Unable to identify customer account." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
 
     const productId = String(body.productId || "");
@@ -95,7 +115,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const cart = await getOrCreateCart(userId);
+    const cart = await getOrCreateCart(dbUser.id);
 
     const existing = await db.cartItem.findUnique({
       where: {
@@ -124,22 +144,11 @@ export async function POST(req: Request) {
       });
     }
 
-    const updated = await getOrCreateCart(userId);
+    const updated = await getOrCreateCart(dbUser.id);
 
     return NextResponse.json({
       success: true,
-      items: updated.items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        variantId: item.variantId,
-        name: item.product.name,
-        variantLabel: item.variant.label,
-        price: item.variant.price,
-        image: item.variant.images?.[0] || item.product.images?.[0] || null,
-        qty: item.qty,
-        productType: item.product.type,
-        slug: item.product.slug,
-      })),
+      items: mapCartItems(updated),
     });
   } catch (error) {
     console.error("Cart POST error:", error);
@@ -159,12 +168,18 @@ export async function PUT(req: Request) {
   }
 
   try {
+    const dbUser = await getOrCreateDbUser();
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
     const body = await req.json();
 
     const variantId = String(body.variantId || "");
     const qty = Math.max(1, Number(body.qty || 1));
 
-    const cart = await getOrCreateCart(userId);
+    const cart = await getOrCreateCart(dbUser.id);
 
     const item = await db.cartItem.findUnique({
       where: {
@@ -176,12 +191,23 @@ export async function PUT(req: Request) {
     });
 
     if (!item) {
-      return NextResponse.json({ error: "Cart item not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Cart item not found." },
+        { status: 404 }
+      );
     }
+
+    const variant = await db.productVariant.findUnique({
+      where: {
+        id: variantId,
+      },
+    });
 
     await db.cartItem.update({
       where: { id: item.id },
-      data: { qty },
+      data: {
+        qty: variant ? Math.min(qty, variant.qty) : qty,
+      },
     });
 
     return NextResponse.json({ success: true });
@@ -203,12 +229,18 @@ export async function DELETE(req: Request) {
   }
 
   try {
+    const dbUser = await getOrCreateDbUser();
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
     const body = await req.json();
 
     const variantId = body.variantId ? String(body.variantId) : null;
     const clear = Boolean(body.clear);
 
-    const cart = await getOrCreateCart(userId);
+    const cart = await getOrCreateCart(dbUser.id);
 
     if (clear) {
       await db.cartItem.deleteMany({
