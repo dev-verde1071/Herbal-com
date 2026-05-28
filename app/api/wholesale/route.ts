@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { resend, FROM_EMAIL, ADMIN_NOTIFICATION_EMAIL } from "@/lib/resend";
 import WholesaleReceived from "@/emails/WholesaleReceived";
@@ -6,11 +7,23 @@ import WholesaleApplicationConfirmation from "@/emails/WholesaleApplicationConfi
 
 export async function POST(req: Request) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Please create an account or sign in before applying." },
+        { status: 401 }
+      );
+    }
+
+    const clerkUser = await currentUser();
+    const accountEmail = clerkUser?.emailAddresses?.[0]?.emailAddress || "";
+
     const body = await req.json();
 
     const name = String(body.name || "").trim();
     const business = String(body.business || "").trim();
-    const email = String(body.email || "").trim();
+    const email = String(body.email || accountEmail || "").trim();
     const phone = String(body.phone || "").trim();
     const message = String(body.message || "").trim();
 
@@ -23,12 +36,15 @@ export async function POST(req: Request) {
 
     const application = await db.wholesaleApplication.create({
       data: {
+        userId,
         name,
         business,
         email,
         phone,
         message,
         status: "PENDING",
+        archived: false,
+        outreachNeeded: false,
       },
     });
 
