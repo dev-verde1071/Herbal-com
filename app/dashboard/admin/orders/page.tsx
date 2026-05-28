@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -33,8 +34,8 @@ export default async function AdminOrdersPage() {
           </h1>
 
           <p className="text-zinc-400 mt-3">
-            Search orders, export CSV files for batch label purchasing, and
-            create Easyship labels.
+            View retail and wholesale orders, export CSV files, add tracking,
+            and send tracking emails.
           </p>
         </div>
 
