@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import SiteShell from "@/components/SiteShell";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import ClearanceBanner from "@/components/ClearanceBanner";
 
 export const metadata: Metadata = {
   title: "Herbal Communities",
   description:
-    "Rare herbs, sea moss, stingless bee honey, wellness products, and retreats.",
+    "Premium herbs, sea moss, natural wellness products, wholesale access, and healing retreats.",
 };
 
 export default function RootLayout({
@@ -14,10 +17,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-jungle-gradient text-white">
-        <SiteShell>{children}</SiteShell>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body>
+          <ClearanceBanner />
+          <Header />
+          {children}
+          <Footer />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
