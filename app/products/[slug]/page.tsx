@@ -27,12 +27,19 @@ export default async function ProductPage({
 
   const fallbackIcon = CATEGORY_ICONS[product.category] || "🌿";
 
+  const allImages = [
+    ...(product.images || []),
+    ...product.variants.flatMap((variant) => variant.images || []),
+  ].filter(Boolean);
+
+  const uniqueImages = Array.from(new Set(allImages));
+
   return (
     <div className="min-h-screen py-12 px-6">
       <div className="max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-14">
           <ProductImageGallery
-            images={product.images || []}
+            images={uniqueImages}
             name={product.name}
             fallbackIcon={fallbackIcon}
           />
@@ -74,33 +81,45 @@ export default async function ProductPage({
                     key={variant.id}
                     className="glass rounded-2xl p-5 border border-jungle-900/60"
                   >
-                    <h3 className="font-semibold text-lg">
-                      {variant.label}
-                    </h3>
-
-                    <div className="flex items-center gap-3 mt-1">
-                      <p
-                        className="text-2xl font-bold"
-                        style={{ color: "#c89f4f" }}
-                      >
-                        {formatPrice(variant.price)}
-                      </p>
-
-                      {variant.compareAt && (
-                        <p className="text-zinc-500 line-through">
-                          {formatPrice(variant.compareAt)}
-                        </p>
+                    <div className="flex gap-4">
+                      {variantImage && (
+                        <img
+                          src={variantImage}
+                          alt={`${product.name} ${variant.label}`}
+                          className="w-24 h-24 rounded-2xl object-cover border border-jungle-900/60 bg-black/30"
+                        />
                       )}
-                    </div>
 
-                    <div className="mt-2 text-sm">
-                      {!unavailable ? (
-                        <span className="text-green-400">
-                          ✓ In stock · {variant.qty} available
-                        </span>
-                      ) : (
-                        <span className="text-red-400">Out of stock</span>
-                      )}
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">
+                          {variant.label}
+                        </h3>
+
+                        <div className="flex items-center gap-3 mt-1">
+                          <p
+                            className="text-2xl font-bold"
+                            style={{ color: "#c89f4f" }}
+                          >
+                            {formatPrice(variant.price)}
+                          </p>
+
+                          {variant.compareAt && (
+                            <p className="text-zinc-500 line-through">
+                              {formatPrice(variant.compareAt)}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="mt-2 text-sm">
+                          {!unavailable ? (
+                            <span className="text-green-400">
+                              ✓ In stock · {variant.qty} available
+                            </span>
+                          ) : (
+                            <span className="text-red-400">Out of stock</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="mt-5 grid sm:grid-cols-2 gap-3">
