@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import AddToCartButton from "@/components/AddToCartButton";
 import BuyNowButton from "@/components/BuyNowButton";
 import ProductImageGallery from "@/components/ProductImageGallery";
+import CartUrgencyNote from "@/components/CartUrgencyNote";
 import { formatPrice, CATEGORY_LABELS, CATEGORY_ICONS } from "@/lib/utils";
 
 export default async function ProductPage({
@@ -118,6 +119,8 @@ export default async function ProductPage({
                           ) : (
                             <span className="text-red-400">Out of stock</span>
                           )}
+
+                          <CartUrgencyNote variantId={variant.id} />
                         </div>
                       </div>
                     </div>
