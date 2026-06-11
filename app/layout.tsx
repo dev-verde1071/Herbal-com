@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import ClearanceBanner from "@/components/ClearanceBanner";
+import SiteChrome from "@/components/SiteChrome";
 import CartSync from "@/components/CartSync";
 
 export const metadata: Metadata = {
@@ -22,10 +20,7 @@ export default function RootLayout({
       <body>
         <ClerkProvider>
           <CartSync />
-          <ClearanceBanner />
-          <Header />
-          {children}
-          <Footer />
+          <SiteChrome>{children}</SiteChrome>
         </ClerkProvider>
       </body>
     </html>
