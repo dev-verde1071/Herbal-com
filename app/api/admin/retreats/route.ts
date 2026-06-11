@@ -1,98 +1,73 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
-import { slugify } from "@/lib/utils";
 
-export async function GET() {
-  if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
-  }
-
-  const retreats = await db.retreat.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  return NextResponse.json(retreats);
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   try {
     const body = await req.json();
 
-    const {
-      name,
-      description,
-      location,
-      country,
-      duration,
-      price,
-      spots,
-      spotsLeft,
-      images,
-      featured,
-      startDate,
-      endDate,
-      includes,
-      metadata,
-      active,
-    } = body;
+    const name = String(body.name || "").trim();
 
-    if (!name || !price) {
+    if (!name) {
       return NextResponse.json(
-        { error: "Name and price are required." },
+        { error: "Retreat name is required." },
         { status: 400 }
       );
     }
 
-    const baseSlug = slugify(name);
-    let slug = baseSlug;
-    let count = 1;
-
-    while (await db.retreat.findUnique({ where: { slug } })) {
-      slug = `${baseSlug}-${count}`;
-      count++;
-    }
+    const slug = body.slug ? slugify(String(body.slug)) : slugify(name);
 
     const retreat = await db.retreat.create({
       data: {
         name,
         slug,
-        description,
-        location,
-        country,
-        duration,
-        price: Number(price),
-        spots: Number(spots || 0),
-        spotsLeft: Number(spotsLeft || spots || 0),
-        images: Array.isArray(images) ? images : [],
-        featured: featured ?? false,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        includes: Array.isArray(includes) ? includes : [],
-        metadata: metadata || {},
-        active: active ?? true,
-        inStock: Number(spotsLeft || spots || 0) > 0,
+        description: body.description || null,
+        location: body.location || null,
+        country: body.country || null,
+        duration: body.duration || null,
+        price: Number(body.price || 0),
+        compareAt: body.compareAt ? Number(body.compareAt) : null,
+        clearanceActive: Boolean(body.clearanceActive),
+        clearancePercent: body.clearancePercent
+          ? Number(body.clearancePercent)
+          : null,
+        clearancePrice: body.clearancePrice
+          ? Number(body.clearancePrice)
+          : null,
+        spots: Number(body.spots || 0),
+        spotsLeft: Number(body.spotsLeft || 0),
+        inStock: Boolean(body.inStock),
+        images: Array.isArray(body.images) ? body.images : [],
+        videos: Array.isArray(body.videos) ? body.videos : [],
+        featured: Boolean(body.featured),
+        startDate: body.startDate ? new Date(body.startDate) : null,
+        endDate: body.endDate ? new Date(body.endDate) : null,
+        includes: Array.isArray(body.includes) ? body.includes : [],
+        active: body.active ?? true,
       },
     });
 
-    return NextResponse.json(retreat);
-  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      retreat,
+    });
+  } catch (error: any) {
     console.error("Create retreat error:", error);
 
     return NextResponse.json(
-      { error: "Failed to create retreat." },
+      { error: error.message || "Failed to create retreat." },
       { status: 500 }
     );
   }
