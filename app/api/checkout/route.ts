@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
+import { getOrCreateDbUser } from "@/lib/currentUser";
 
 const STANDARD_SHIPPING = {
   shipping_rate_data: {
@@ -24,6 +25,26 @@ const STANDARD_SHIPPING = {
   },
 };
 
+function getRetreatCheckoutPrice(retreat: {
+  price: number;
+  clearanceActive: boolean;
+  clearancePrice?: number | null;
+  clearancePercent?: number | null;
+}) {
+  if (retreat.clearanceActive) {
+    if (retreat.clearancePrice && retreat.clearancePrice > 0) {
+      return retreat.clearancePrice;
+    }
+
+    if (retreat.clearancePercent && retreat.clearancePercent > 0) {
+      const discount = retreat.price * (retreat.clearancePercent / 100);
+      return Math.max(0, retreat.price - discount);
+    }
+  }
+
+  return retreat.price;
+}
+
 export async function POST(req: Request) {
   try {
     if (!stripe) {
@@ -34,15 +55,18 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+
     const { items, variantId, retreatId, fromSavedCart } = body;
 
     const { userId } = await auth();
+
+    const dbUser = userId ? await getOrCreateDbUser() : null;
 
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     if (fromSavedCart) {
-      if (!userId) {
+      if (!dbUser) {
         return NextResponse.json(
           { error: "Please sign in before checking out." },
           { status: 401 }
@@ -50,12 +74,13 @@ export async function POST(req: Request) {
       }
 
       const cart = await db.cart.findFirst({
-        where: { userId },
+        where: { userId: dbUser.id },
         include: {
           items: {
             include: {
               product: true,
               variant: true,
+              retreat: true,
             },
           },
         },
@@ -68,7 +93,46 @@ export async function POST(req: Request) {
         );
       }
 
+      const hasRetreat = cart.items.some((item) => item.retreatId);
+      const hasWholesale = cart.items.some(
+        (item) => item.product?.type === "WHOLESALE"
+      );
+
       const lineItems = cart.items.map((item) => {
+        if (item.retreat) {
+          if (
+            !item.retreat.active ||
+            !item.retreat.inStock ||
+            item.retreat.spotsLeft <= 0
+          ) {
+            throw new Error(`${item.retreat.name} is fully booked.`);
+          }
+
+          if (item.qty > item.retreat.spotsLeft) {
+            throw new Error(
+              `Only ${item.retreat.spotsLeft} spots available for ${item.retreat.name}.`
+            );
+          }
+
+          const checkoutPrice = getRetreatCheckoutPrice(item.retreat);
+
+          return {
+            price_data: {
+              currency: "usd",
+              unit_amount: Math.round(checkoutPrice * 100),
+              product_data: {
+                name: item.retreat.name,
+                description: item.retreat.description || undefined,
+              },
+            },
+            quantity: item.qty,
+          };
+        }
+
+        if (!item.variant || !item.product) {
+          throw new Error("One or more cart items are unavailable.");
+        }
+
         if (!item.variant.inStock || item.variant.qty <= 0) {
           throw new Error(`${item.product.name} is unavailable.`);
         }
@@ -92,31 +156,36 @@ export async function POST(req: Request) {
         };
       });
 
-      const orderType = cart.items.some((item) => item.product.type === "WHOLESALE")
-        ? "WHOLESALE"
-        : "RETAIL";
+      const orderType = hasRetreat
+        ? "RETREAT"
+        : hasWholesale
+          ? "WHOLESALE"
+          : "RETAIL";
+
+      const cartMetadata = cart.items.map((item) => ({
+        variantId: item.variantId,
+        retreatId: item.retreatId,
+        qty: item.qty,
+      }));
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}/cart`,
         customer_creation: "always",
-        shipping_address_collection: {
-          allowed_countries: ["US"],
-        },
-        shipping_options: [STANDARD_SHIPPING],
+        shipping_address_collection: hasRetreat
+          ? undefined
+          : {
+              allowed_countries: ["US"],
+            },
+        shipping_options: hasRetreat ? undefined : [STANDARD_SHIPPING],
         line_items: lineItems,
         metadata: {
           type: "cart",
           orderType,
-          userId,
+          userId: dbUser.id,
           cartId: cart.id,
-          cart: JSON.stringify(
-            cart.items.map((item) => ({
-              variantId: item.variantId,
-              qty: item.qty,
-            }))
-          ).slice(0, 450),
+          cart: JSON.stringify(cartMetadata).slice(0, 450),
         },
       });
 
@@ -124,7 +193,13 @@ export async function POST(req: Request) {
     }
 
     if (Array.isArray(items) && items.length > 0) {
-      const variantIds = items.map((item: any) => item.variantId);
+      const variantIds = items
+        .map((item: any) => item.variantId)
+        .filter(Boolean);
+
+      const retreatIds = items
+        .map((item: any) => item.retreatId)
+        .filter(Boolean);
 
       const variants = await db.productVariant.findMany({
         where: {
@@ -137,19 +212,54 @@ export async function POST(req: Request) {
         },
       });
 
-      const cartMetadata = items.map((item: any) => ({
-        variantId: item.variantId,
-        qty: Math.max(1, Number(item.qty || 1)),
-      }));
+      const retreats = await db.retreat.findMany({
+        where: {
+          id: {
+            in: retreatIds,
+          },
+        },
+      });
 
       const lineItems = items.map((item: any) => {
+        const qty = Math.max(1, Number(item.qty || 1));
+
+        if (item.retreatId) {
+          const retreat = retreats.find((r) => r.id === item.retreatId);
+
+          if (!retreat || !retreat.active || !retreat.inStock) {
+            throw new Error("One or more retreats are unavailable.");
+          }
+
+          if (retreat.spotsLeft <= 0) {
+            throw new Error(`${retreat.name} is fully booked.`);
+          }
+
+          if (qty > retreat.spotsLeft) {
+            throw new Error(
+              `Only ${retreat.spotsLeft} spots available for ${retreat.name}.`
+            );
+          }
+
+          const checkoutPrice = getRetreatCheckoutPrice(retreat);
+
+          return {
+            price_data: {
+              currency: "usd",
+              unit_amount: Math.round(checkoutPrice * 100),
+              product_data: {
+                name: retreat.name,
+                description: retreat.description || undefined,
+              },
+            },
+            quantity: qty,
+          };
+        }
+
         const variant = variants.find((v) => v.id === item.variantId);
 
         if (!variant || !variant.product || !variant.inStock) {
           throw new Error("One or more cart items are unavailable.");
         }
-
-        const qty = Math.max(1, Number(item.qty || 1));
 
         if (variant.qty > 0 && qty > variant.qty) {
           throw new Error(
@@ -170,25 +280,40 @@ export async function POST(req: Request) {
         };
       });
 
-      const orderType = variants.some((variant) => variant.product.type === "WHOLESALE")
-        ? "WHOLESALE"
-        : "RETAIL";
+      const hasRetreat = retreatIds.length > 0;
+      const hasWholesale = variants.some(
+        (variant) => variant.product.type === "WHOLESALE"
+      );
+
+      const orderType = hasRetreat
+        ? "RETREAT"
+        : hasWholesale
+          ? "WHOLESALE"
+          : "RETAIL";
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}/cart`,
         customer_creation: "always",
-        shipping_address_collection: {
-          allowed_countries: ["US"],
-        },
-        shipping_options: [STANDARD_SHIPPING],
+        shipping_address_collection: hasRetreat
+          ? undefined
+          : {
+              allowed_countries: ["US"],
+            },
+        shipping_options: hasRetreat ? undefined : [STANDARD_SHIPPING],
         line_items: lineItems,
         metadata: {
           type: "cart",
           orderType,
-          userId: userId || "",
-          cart: JSON.stringify(cartMetadata).slice(0, 450),
+          userId: dbUser?.id || "",
+          cart: JSON.stringify(
+            items.map((item: any) => ({
+              variantId: item.variantId || null,
+              retreatId: item.retreatId || null,
+              qty: Math.max(1, Number(item.qty || 1)),
+            }))
+          ).slice(0, 450),
         },
       });
 
@@ -236,7 +361,7 @@ export async function POST(req: Request) {
           type: "product",
           orderType:
             variant.product.type === "WHOLESALE" ? "WHOLESALE" : "RETAIL",
-          userId: userId || "",
+          userId: dbUser?.id || "",
         },
       });
 
@@ -248,12 +373,21 @@ export async function POST(req: Request) {
         where: { id: retreatId },
       });
 
-      if (!retreat || !retreat.inStock || retreat.spotsLeft <= 0) {
+      if (!retreat || !retreat.active || !retreat.inStock) {
         return NextResponse.json(
           { error: "Retreat unavailable." },
           { status: 400 }
         );
       }
+
+      if (retreat.spotsLeft <= 0) {
+        return NextResponse.json(
+          { error: "This trip is fully booked." },
+          { status: 400 }
+        );
+      }
+
+      const checkoutPrice = getRetreatCheckoutPrice(retreat);
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
@@ -264,7 +398,7 @@ export async function POST(req: Request) {
           {
             price_data: {
               currency: "usd",
-              unit_amount: Math.round(retreat.price * 100),
+              unit_amount: Math.round(checkoutPrice * 100),
               product_data: {
                 name: retreat.name,
                 description: retreat.description || undefined,
@@ -277,7 +411,13 @@ export async function POST(req: Request) {
           retreatId: retreat.id,
           type: "retreat",
           orderType: "RETREAT",
-          userId: userId || "",
+          userId: dbUser?.id || "",
+          originalPrice: String(retreat.price),
+          checkoutPrice: String(checkoutPrice),
+          clearanceActive: String(retreat.clearanceActive),
+          clearancePercent: retreat.clearancePercent
+            ? String(retreat.clearancePercent)
+            : "",
         },
       });
 
