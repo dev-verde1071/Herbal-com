@@ -13,8 +13,14 @@ const STANDARD_SHIPPING = {
     },
     display_name: "Standard Shipping",
     delivery_estimate: {
-      minimum: { unit: "business_day" as const, value: 3 },
-      maximum: { unit: "business_day" as const, value: 7 },
+      minimum: {
+        unit: "business_day" as const,
+        value: 3,
+      },
+      maximum: {
+        unit: "business_day" as const,
+        value: 7,
+      },
     },
   },
 };
@@ -26,10 +32,15 @@ function getRetreatCheckoutPrice(retreat: {
   clearancePercent?: number | null;
 }) {
   if (retreat.clearanceActive) {
-    if (retreat.clearancePrice && retreat.clearancePrice > 0) return retreat.clearancePrice;
+    if (retreat.clearancePrice && retreat.clearancePrice > 0) {
+      return retreat.clearancePrice;
+    }
 
     if (retreat.clearancePercent && retreat.clearancePercent > 0) {
-      return Math.max(0, retreat.price - retreat.price * (retreat.clearancePercent / 100));
+      return Math.max(
+        0,
+        retreat.price - retreat.price * (retreat.clearancePercent / 100)
+      );
     }
   }
 
@@ -39,23 +50,34 @@ function getRetreatCheckoutPrice(retreat: {
 export async function POST(req: Request) {
   try {
     if (!stripe) {
-      return NextResponse.json({ error: "Stripe is not configured yet." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Stripe is not configured yet." },
+        { status: 500 }
+      );
     }
 
     const body = await req.json();
-    const { items, variantId, retreatId, fromSavedCart } = body;
+
+    const { variantId, retreatId, fromSavedCart } = body;
 
     const { userId } = await auth();
     const dbUser = userId ? await getOrCreateDbUser() : null;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     if (fromSavedCart) {
       if (!dbUser) {
-        return NextResponse.json({ error: "Please sign in before checking out." }, { status: 401 });
+        return NextResponse.json(
+          { error: "Please sign in before checking out." },
+          { status: 401 }
+        );
       }
 
       const cart = await db.cart.findFirst({
-        where: { userId: dbUser.id },
+        where: {
+          userId: dbUser.id,
+        },
         include: {
           items: {
             include: {
@@ -68,17 +90,31 @@ export async function POST(req: Request) {
       });
 
       if (!cart || cart.items.length === 0) {
-        return NextResponse.json({ error: "Your cart is empty." }, { status: 400 });
+        return NextResponse.json(
+          { error: "Your cart is empty." },
+          { status: 400 }
+        );
       }
+
+      const hasRetreat = cart.items.some((item) => item.retreatId);
+      const hasWholesale = cart.items.some(
+        (item) => item.product?.type === "WHOLESALE"
+      );
 
       const lineItems = cart.items.map((item) => {
         if (item.retreat) {
-          if (!item.retreat.active || !item.retreat.inStock || item.retreat.spotsLeft <= 0) {
+          if (
+            !item.retreat.active ||
+            !item.retreat.inStock ||
+            item.retreat.spotsLeft <= 0
+          ) {
             throw new Error(`${item.retreat.name} is fully booked.`);
           }
 
           if (item.qty > item.retreat.spotsLeft) {
-            throw new Error(`Only ${item.retreat.spotsLeft} spots available for ${item.retreat.name}.`);
+            throw new Error(
+              `Only ${item.retreat.spotsLeft} spots available for ${item.retreat.name}.`
+            );
           }
 
           const price = getRetreatCheckoutPrice(item.retreat);
@@ -96,14 +132,18 @@ export async function POST(req: Request) {
           };
         }
 
-        if (!item.variant || !item.product) throw new Error("One or more cart items are unavailable.");
+        if (!item.variant || !item.product) {
+          throw new Error("One or more cart items are unavailable.");
+        }
 
         if (!item.variant.inStock || item.variant.qty <= 0) {
           throw new Error(`${item.product.name} is unavailable.`);
         }
 
         if (item.qty > item.variant.qty) {
-          throw new Error(`Only ${item.variant.qty} available for ${item.product.name}.`);
+          throw new Error(
+            `Only ${item.variant.qty} available for ${item.product.name}.`
+          );
         }
 
         return {
@@ -119,44 +159,57 @@ export async function POST(req: Request) {
         };
       });
 
-      const hasRetreat = cart.items.some((item) => item.retreatId);
-      const hasWholesale = cart.items.some((item) => item.product?.type === "WHOLESALE");
-      const orderType = hasRetreat ? "RETREAT" : hasWholesale ? "WHOLESALE" : "RETAIL";
+      const orderType = hasRetreat
+        ? "RETREAT"
+        : hasWholesale
+          ? "WHOLESALE"
+          : "RETAIL";
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}/cart`,
         customer_creation: "always",
-        shipping_address_collection: hasRetreat ? undefined : { allowed_countries: ["US"] },
+        shipping_address_collection: hasRetreat
+          ? undefined
+          : {
+              allowed_countries: ["US"],
+            },
         shipping_options: hasRetreat ? undefined : [STANDARD_SHIPPING],
         line_items: lineItems,
         metadata: {
-          type: "cart",
+          type: "saved_cart",
           orderType,
           userId: dbUser.id,
           cartId: cart.id,
-          cart: JSON.stringify(
-            cart.items.map((item) => ({
-              variantId: item.variantId,
-              retreatId: item.retreatId,
-              qty: item.qty,
-            }))
-          ).slice(0, 450),
         },
       });
 
-      return NextResponse.json({ url: session.url });
+      return NextResponse.json({
+        url: session.url,
+      });
     }
 
     if (variantId) {
       const variant = await db.productVariant.findUnique({
-        where: { id: variantId },
-        include: { product: true },
+        where: {
+          id: String(variantId),
+        },
+        include: {
+          product: true,
+        },
       });
 
-      if (!variant || !variant.product || !variant.inStock || variant.qty <= 0) {
-        return NextResponse.json({ error: "Product unavailable." }, { status: 400 });
+      if (
+        !variant ||
+        !variant.product ||
+        !variant.inStock ||
+        variant.qty <= 0
+      ) {
+        return NextResponse.json(
+          { error: "Product unavailable." },
+          { status: 400 }
+        );
       }
 
       const session = await stripe.checkout.sessions.create({
@@ -164,7 +217,9 @@ export async function POST(req: Request) {
         success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}/products/${variant.product.slug}`,
         customer_creation: "always",
-        shipping_address_collection: { allowed_countries: ["US"] },
+        shipping_address_collection: {
+          allowed_countries: ["US"],
+        },
         shipping_options: [STANDARD_SHIPPING],
         line_items: [
           {
@@ -180,22 +235,37 @@ export async function POST(req: Request) {
           },
         ],
         metadata: {
+          type: "product",
+          orderType:
+            variant.product.type === "WHOLESALE" ? "WHOLESALE" : "RETAIL",
+          userId: dbUser?.id || "",
           variantId: variant.id,
           productId: variant.product.id,
-          type: "product",
-          orderType: variant.product.type === "WHOLESALE" ? "WHOLESALE" : "RETAIL",
-          userId: dbUser?.id || "",
         },
       });
 
-      return NextResponse.json({ url: session.url });
+      return NextResponse.json({
+        url: session.url,
+      });
     }
 
     if (retreatId) {
-      const retreat = await db.retreat.findUnique({ where: { id: retreatId } });
+      const retreat = await db.retreat.findUnique({
+        where: {
+          id: String(retreatId),
+        },
+      });
 
-      if (!retreat || !retreat.active || !retreat.inStock || retreat.spotsLeft <= 0) {
-        return NextResponse.json({ error: "This trip is fully booked." }, { status: 400 });
+      if (
+        !retreat ||
+        !retreat.active ||
+        !retreat.inStock ||
+        retreat.spotsLeft <= 0
+      ) {
+        return NextResponse.json(
+          { error: "This trip is fully booked." },
+          { status: 400 }
+        );
       }
 
       const checkoutPrice = getRetreatCheckoutPrice(retreat);
@@ -219,19 +289,23 @@ export async function POST(req: Request) {
           },
         ],
         metadata: {
-          retreatId: retreat.id,
           type: "retreat",
           orderType: "RETREAT",
           userId: dbUser?.id || "",
-          originalPrice: String(retreat.price),
+          retreatId: retreat.id,
           checkoutPrice: String(checkoutPrice),
         },
       });
 
-      return NextResponse.json({ url: session.url });
+      return NextResponse.json({
+        url: session.url,
+      });
     }
 
-    return NextResponse.json({ error: "Missing checkout item." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing checkout item." },
+      { status: 400 }
+    );
   } catch (error: any) {
     console.error("Checkout error:", error);
 
