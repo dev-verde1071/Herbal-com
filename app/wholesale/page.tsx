@@ -1,8 +1,53 @@
-import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
-import WholesaleInquiryForm from "./WholesaleInquiryForm";
+export const dynamic = "force-dynamic";
 
-export default function WholesalePage() {
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import WholesaleAccessPanel from "./WholesaleAccessPanel";
+
+export default async function WholesalePage() {
+  const { userId } = await auth();
+
+  if (userId) {
+    const user = await currentUser();
+    const email = user?.emailAddresses?.[0]?.emailAddress;
+
+    if (email) {
+      const approvedApplication = await db.wholesaleApplication.findFirst({
+        where: {
+          OR: [
+            {
+              userId,
+            },
+            {
+              email,
+            },
+          ],
+          status: "APPROVED",
+          archived: false,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      if (approvedApplication) {
+        if (!approvedApplication.userId) {
+          await db.wholesaleApplication.update({
+            where: {
+              id: approvedApplication.id,
+            },
+            data: {
+              userId,
+            },
+          });
+        }
+
+        redirect("/dashboard/wholesale");
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen py-16 px-6">
       <div className="max-w-6xl mx-auto">
@@ -51,48 +96,7 @@ export default function WholesalePage() {
             </div>
           </div>
 
-          <div>
-            <SignedIn>
-              <WholesaleInquiryForm />
-
-              <div className="mt-6 text-center">
-                <Link
-                  href="/dashboard/wholesale"
-                  className="inline-flex rounded-2xl bg-black/30 hover:bg-jungle-900/60 border border-jungle-900/60 px-6 py-3 font-semibold transition"
-                >
-                  View Wholesale Area
-                </Link>
-              </div>
-            </SignedIn>
-
-            <SignedOut>
-              <div className="glass rounded-3xl p-8 border border-jungle-900/60 text-center">
-                <h2 className="font-display text-3xl mb-4">
-                  Create an Account First
-                </h2>
-
-                <p className="text-zinc-300 leading-relaxed mb-8">
-                  Please create an account or sign in before submitting a
-                  wholesale application. This lets us connect your approval to
-                  your wholesale access.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <SignUpButton mode="modal">
-                    <button className="rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition">
-                      Create Account
-                    </button>
-                  </SignUpButton>
-
-                  <SignInButton mode="modal">
-                    <button className="rounded-2xl bg-black/30 hover:bg-jungle-900/60 border border-jungle-900/60 px-6 py-3 font-semibold transition">
-                      Sign In
-                    </button>
-                  </SignInButton>
-                </div>
-              </div>
-            </SignedOut>
-          </div>
+          <WholesaleAccessPanel />
         </div>
       </div>
     </div>
