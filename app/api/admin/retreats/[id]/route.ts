@@ -2,31 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
-  }
-
-  const { id } = await params;
-
-  const retreat = await db.retreat.findUnique({
-    where: { id },
-  });
-
-  if (!retreat) {
-    return NextResponse.json(
-      { error: "Retreat not found." },
-      { status: 404 }
-    );
-  }
-
-  return NextResponse.json(retreat);
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export async function PUT(
@@ -34,62 +15,64 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   try {
     const { id } = await params;
     const body = await req.json();
 
-    const {
-      name,
-      description,
-      location,
-      country,
-      duration,
-      price,
-      spots,
-      spotsLeft,
-      images,
-      featured,
-      startDate,
-      endDate,
-      includes,
-      metadata,
-      active,
-    } = body;
+    const name = String(body.name || "").trim();
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Retreat name is required." },
+        { status: 400 }
+      );
+    }
+
+    const slug = body.slug ? slugify(String(body.slug)) : slugify(name);
 
     const retreat = await db.retreat.update({
       where: { id },
       data: {
         name,
-        description,
-        location,
-        country,
-        duration,
-        price: Number(price),
-        spots: Number(spots || 0),
-        spotsLeft: Number(spotsLeft || 0),
-        images: Array.isArray(images) ? images : [],
-        featured: featured ?? false,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        includes: Array.isArray(includes) ? includes : [],
-        metadata: metadata || {},
-        active: active ?? true,
-        inStock: Number(spotsLeft || 0) > 0,
+        slug,
+        description: body.description || null,
+        location: body.location || null,
+        country: body.country || null,
+        duration: body.duration || null,
+        price: Number(body.price || 0),
+        compareAt: body.compareAt ? Number(body.compareAt) : null,
+        clearanceActive: Boolean(body.clearanceActive),
+        clearancePercent: body.clearancePercent
+          ? Number(body.clearancePercent)
+          : null,
+        clearancePrice: body.clearancePrice
+          ? Number(body.clearancePrice)
+          : null,
+        spots: Number(body.spots || 0),
+        spotsLeft: Number(body.spotsLeft || 0),
+        inStock: Boolean(body.inStock),
+        images: Array.isArray(body.images) ? body.images : [],
+        videos: Array.isArray(body.videos) ? body.videos : [],
+        featured: Boolean(body.featured),
+        startDate: body.startDate ? new Date(body.startDate) : null,
+        endDate: body.endDate ? new Date(body.endDate) : null,
+        includes: Array.isArray(body.includes) ? body.includes : [],
+        active: body.active ?? true,
       },
     });
 
-    return NextResponse.json(retreat);
-  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      retreat,
+    });
+  } catch (error: any) {
     console.error("Update retreat error:", error);
 
     return NextResponse.json(
-      { error: "Failed to update retreat." },
+      { error: error.message || "Failed to update retreat." },
       { status: 500 }
     );
   }
@@ -100,10 +83,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await isAdmin())) {
-    return NextResponse.json(
-      { error: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   try {
@@ -114,11 +94,11 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Delete retreat error:", error);
 
     return NextResponse.json(
-      { error: "Failed to delete retreat." },
+      { error: error.message || "Failed to delete retreat." },
       { status: 500 }
     );
   }
