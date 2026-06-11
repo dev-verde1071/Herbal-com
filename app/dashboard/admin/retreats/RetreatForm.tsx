@@ -6,17 +6,24 @@ import { useRouter } from "next/navigation";
 type RetreatFormData = {
   id?: string;
   name: string;
+  slug?: string;
   description?: string | null;
   location?: string | null;
   country?: string | null;
   duration?: string | null;
   price: number | string;
+  compareAt?: number | string | null;
+  clearanceActive: boolean;
+  clearancePercent?: number | string | null;
+  clearancePrice?: number | string | null;
   spots: number | string;
   spotsLeft: number | string;
+  inStock: boolean;
   images: string[];
+  videos: string[];
   featured: boolean;
-  startDate?: string | null;
-  endDate?: string | null;
+  startDate?: string | Date | null;
+  endDate?: string | Date | null;
   includes: string[];
   active: boolean;
 };
@@ -29,33 +36,222 @@ export default function RetreatForm({
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
+  const [draggingImages, setDraggingImages] = useState(false);
+  const [draggingVideos, setDraggingVideos] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const [form, setForm] = useState<RetreatFormData>(
-    retreat || {
-      name: "",
-      description: "",
-      location: "",
-      country: "",
-      duration: "",
-      price: "",
-      spots: 0,
-      spotsLeft: 0,
-      images: [],
-      featured: false,
-      startDate: "",
-      endDate: "",
-      includes: [],
-      active: true,
+  const [form, setForm] = useState<RetreatFormData>({
+    id: retreat?.id,
+    name: retreat?.name || "",
+    slug: retreat?.slug || "",
+    description: retreat?.description || "",
+    location: retreat?.location || "",
+    country: retreat?.country || "",
+    duration: retreat?.duration || "",
+    price: retreat?.price ?? "",
+    compareAt: retreat?.compareAt ?? "",
+    clearanceActive: retreat?.clearanceActive ?? false,
+    clearancePercent: retreat?.clearancePercent ?? "",
+    clearancePrice: retreat?.clearancePrice ?? "",
+    spots: retreat?.spots ?? 0,
+    spotsLeft: retreat?.spotsLeft ?? 0,
+    inStock: retreat?.inStock ?? true,
+    images: Array.isArray(retreat?.images) ? retreat.images : [],
+    videos: Array.isArray(retreat?.videos) ? retreat.videos : [],
+    featured: retreat?.featured ?? false,
+    startDate: retreat?.startDate
+      ? new Date(retreat.startDate).toISOString().slice(0, 10)
+      : "",
+    endDate: retreat?.endDate
+      ? new Date(retreat.endDate).toISOString().slice(0, 10)
+      : "",
+    includes: Array.isArray(retreat?.includes) ? retreat.includes : [],
+    active: retreat?.active ?? true,
+  });
+
+  function slugify(value: string) {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function compressImage(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const img = new Image();
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxWidth = 1400;
+          const scale = Math.min(1, maxWidth / img.width);
+
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            reject(new Error("Image compression failed."));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.78));
+        };
+
+        img.onerror = reject;
+        img.src = String(reader.result);
+      };
+
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function readVideo(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function processImageFiles(files: FileList | File[]) {
+    const imageFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("image/")
+    );
+
+    if (imageFiles.length === 0) return [];
+
+    const results: string[] = [];
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const compressed = await compressImage(imageFiles[i]);
+      results.push(compressed);
+      setUploadProgress(Math.round(((i + 1) / imageFiles.length) * 100));
     }
-  );
 
-  const [imageText, setImageText] = useState(
-    retreat?.images?.join("\n") || ""
-  );
+    setTimeout(() => setUploadProgress(0), 800);
 
-  const [includesText, setIncludesText] = useState(
-    retreat?.includes?.join("\n") || ""
-  );
+    return results;
+  }
+
+  async function processVideoFiles(files: FileList | File[]) {
+    const videoFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("video/")
+    );
+
+    if (videoFiles.length === 0) return [];
+
+    const results: string[] = [];
+
+    for (let i = 0; i < videoFiles.length; i++) {
+      const video = await readVideo(videoFiles[i]);
+      results.push(video);
+      setUploadProgress(Math.round(((i + 1) / videoFiles.length) * 100));
+    }
+
+    setTimeout(() => setUploadProgress(0), 800);
+
+    return results;
+  }
+
+  async function addImages(files: FileList | File[]) {
+    const uploaded = await processImageFiles(files);
+
+    setForm((prev) => ({
+      ...prev,
+      images: [...(prev.images || []), ...uploaded],
+    }));
+  }
+
+  async function addVideos(files: FileList | File[]) {
+    const uploaded = await processVideoFiles(files);
+
+    setForm((prev) => ({
+      ...prev,
+      videos: [...(prev.videos || []), ...uploaded],
+    }));
+  }
+
+  function removeImage(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
+  }
+
+  function removeVideo(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      videos: prev.videos.filter((_, i) => i !== index),
+    }));
+  }
+
+  function moveImage(from: number, to: number) {
+    const images = [...form.images];
+
+    if (to < 0 || to >= images.length) return;
+
+    const [moved] = images.splice(from, 1);
+    images.splice(to, 0, moved);
+
+    setForm({
+      ...form,
+      images,
+    });
+  }
+
+  function moveVideo(from: number, to: number) {
+    const videos = [...form.videos];
+
+    if (to < 0 || to >= videos.length) return;
+
+    const [moved] = videos.splice(from, 1);
+    videos.splice(to, 0, moved);
+
+    setForm({
+      ...form,
+      videos,
+    });
+  }
+
+  function setMainImage(index: number) {
+    moveImage(index, 0);
+  }
+
+  function updateIncludes(value: string) {
+    setForm({
+      ...form,
+      includes: value
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    });
+  }
+
+  function calculateClearancePreview() {
+    const price = Number(form.price || 0);
+
+    if (!form.clearanceActive) return price;
+
+    const directPrice = Number(form.clearancePrice || 0);
+    const percent = Number(form.clearancePercent || 0);
+
+    if (directPrice > 0) return directPrice;
+
+    if (percent > 0) {
+      return Math.max(0, price - price * (percent / 100));
+    }
+
+    return price;
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,17 +260,20 @@ export default function RetreatForm({
 
     const payload = {
       ...form,
+      slug: form.slug || slugify(form.name),
       price: Number(form.price || 0),
+      compareAt: form.compareAt ? Number(form.compareAt) : null,
+      clearancePercent: form.clearancePercent
+        ? Number(form.clearancePercent)
+        : null,
+      clearancePrice: form.clearancePrice ? Number(form.clearancePrice) : null,
       spots: Number(form.spots || 0),
       spotsLeft: Number(form.spotsLeft || 0),
-      images: imageText
-        .split("\n")
-        .map((x) => x.trim())
-        .filter(Boolean),
-      includes: includesText
-        .split("\n")
-        .map((x) => x.trim())
-        .filter(Boolean),
+      startDate: form.startDate ? new Date(String(form.startDate)) : null,
+      endDate: form.endDate ? new Date(String(form.endDate)) : null,
+      images: Array.isArray(form.images) ? form.images : [],
+      videos: Array.isArray(form.videos) ? form.videos : [],
+      includes: Array.isArray(form.includes) ? form.includes : [],
     };
 
     const url = retreat?.id
@@ -93,12 +292,14 @@ export default function RetreatForm({
 
     setLoading(false);
 
-    if (res.ok) {
-      router.push("/dashboard/admin/retreats");
-      router.refresh();
-    } else {
-      alert("Failed to save retreat.");
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      alert(data?.error || "Failed to save retreat.");
+      return;
     }
+
+    router.push("/dashboard/admin/retreats");
+    router.refresh();
   }
 
   return (
@@ -119,12 +320,52 @@ export default function RetreatForm({
               setForm({
                 ...form,
                 name: e.target.value,
+                slug: form.slug || slugify(e.target.value),
               })
             }
             className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
           />
         </div>
 
+        <div>
+          <label className="block text-sm text-zinc-300 mb-2">
+            Slug
+          </label>
+
+          <input
+            value={form.slug || ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                slug: slugify(e.target.value),
+              })
+            }
+            placeholder="auto-generated-from-name"
+            className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-zinc-300 mb-2">
+          Retreat Description / Itinerary
+        </label>
+
+        <textarea
+          rows={8}
+          value={form.description || ""}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              description: e.target.value,
+            })
+          }
+          placeholder="Use this area to outline the retreat details, daily itinerary, expectations, travel notes, lodging details, healing schedule, ceremonies, activities, and any important guest information."
+          className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
+        />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
         <div>
           <label className="block text-sm text-zinc-300 mb-2">
             Location
@@ -141,9 +382,7 @@ export default function RetreatForm({
             className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
           />
         </div>
-      </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm text-zinc-300 mb-2">
             Country
@@ -167,7 +406,6 @@ export default function RetreatForm({
           </label>
 
           <input
-            placeholder="Example: 7 days / 6 nights"
             value={form.duration || ""}
             onChange={(e) =>
               setForm({
@@ -175,33 +413,16 @@ export default function RetreatForm({
                 duration: e.target.value,
               })
             }
+            placeholder="Example: 7 days / 6 nights"
             className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
           />
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm text-zinc-300 mb-2">
-          Description
-        </label>
-
-        <textarea
-          rows={5}
-          value={form.description || ""}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              description: e.target.value,
-            })
-          }
-          className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
-        />
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-4 gap-6">
         <div>
           <label className="block text-sm text-zinc-300 mb-2">
-            Price
+            Regular Price
           </label>
 
           <input
@@ -221,7 +442,27 @@ export default function RetreatForm({
 
         <div>
           <label className="block text-sm text-zinc-300 mb-2">
-            Total Spots
+            Compare At / Old Price
+          </label>
+
+          <input
+            type="number"
+            step="0.01"
+            value={form.compareAt || ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                compareAt: e.target.value,
+              })
+            }
+            placeholder="Optional"
+            className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-zinc-300 mb-2">
+            Spots Total
           </label>
 
           <input
@@ -239,7 +480,7 @@ export default function RetreatForm({
 
         <div>
           <label className="block text-sm text-zinc-300 mb-2">
-            Spots Left
+            Spots Available
           </label>
 
           <input
@@ -256,6 +497,85 @@ export default function RetreatForm({
         </div>
       </div>
 
+      <div className="rounded-3xl bg-black/20 border border-jungle-900/60 p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <input
+            type="checkbox"
+            checked={form.clearanceActive}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                clearanceActive: e.target.checked,
+              })
+            }
+          />
+
+          <div>
+            <h3 className="font-semibold text-jungle-300">
+              Clearance / Discount Pricing
+            </h3>
+
+            <p className="text-sm text-zinc-500">
+              Use this when you want to discount a retreat to fill empty spots.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm text-zinc-300 mb-2">
+              Percent Off
+            </label>
+
+            <input
+              type="number"
+              value={form.clearancePercent || ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  clearancePercent: e.target.value,
+                })
+              }
+              placeholder="Example: 20"
+              className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-zinc-300 mb-2">
+              Final Clearance Price
+            </label>
+
+            <input
+              type="number"
+              step="0.01"
+              value={form.clearancePrice || ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  clearancePrice: e.target.value,
+                })
+              }
+              placeholder="Optional override, example: 800"
+              className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
+            />
+          </div>
+
+          <div className="rounded-2xl bg-black/30 border border-jungle-900/60 p-4">
+            <p className="text-sm text-zinc-500 mb-1">
+              Checkout Price Preview
+            </p>
+
+            <p
+              className="text-2xl font-bold"
+              style={{ color: "#c89f4f" }}
+            >
+              ${calculateClearancePreview().toFixed(2)}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm text-zinc-300 mb-2">
@@ -264,7 +584,7 @@ export default function RetreatForm({
 
           <input
             type="date"
-            value={form.startDate || ""}
+            value={String(form.startDate || "")}
             onChange={(e) =>
               setForm({
                 ...form,
@@ -282,7 +602,7 @@ export default function RetreatForm({
 
           <input
             type="date"
-            value={form.endDate || ""}
+            value={String(form.endDate || "")}
             onChange={(e) =>
               setForm({
                 ...form,
@@ -294,34 +614,8 @@ export default function RetreatForm({
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm text-zinc-300 mb-2">
-          Image URLs, one per line
-        </label>
-
-        <textarea
-          rows={4}
-          value={imageText}
-          onChange={(e) => setImageText(e.target.value)}
-          className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm text-zinc-300 mb-2">
-          Includes, one per line
-        </label>
-
-        <textarea
-          rows={4}
-          value={includesText}
-          onChange={(e) => setIncludesText(e.target.value)}
-          className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-8">
-        <label className="flex items-center gap-3">
+      <div className="grid lg:grid-cols-3 gap-6">
+        <label className="flex items-center gap-3 rounded-2xl bg-black/20 border border-jungle-900/60 px-5 py-4">
           <input
             type="checkbox"
             checked={form.active}
@@ -334,11 +628,28 @@ export default function RetreatForm({
           />
 
           <span className="text-sm text-zinc-300">
-            Active
+            Active on retreats page
           </span>
         </label>
 
-        <label className="flex items-center gap-3">
+        <label className="flex items-center gap-3 rounded-2xl bg-black/20 border border-jungle-900/60 px-5 py-4">
+          <input
+            type="checkbox"
+            checked={form.inStock}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                inStock: e.target.checked,
+              })
+            }
+          />
+
+          <span className="text-sm text-zinc-300">
+            Available for booking
+          </span>
+        </label>
+
+        <label className="flex items-center gap-3 rounded-2xl bg-black/20 border border-jungle-900/60 px-5 py-4">
           <input
             type="checkbox"
             checked={form.featured}
@@ -351,16 +662,270 @@ export default function RetreatForm({
           />
 
           <span className="text-sm text-zinc-300">
-            Featured
+            Featured retreat
           </span>
         </label>
+      </div>
+
+      <section>
+        <label className="block text-sm text-zinc-300 mb-2">
+          Retreat Images
+        </label>
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDraggingImages(true);
+          }}
+          onDragLeave={() => setDraggingImages(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDraggingImages(false);
+            addImages(e.dataTransfer.files);
+          }}
+          className={`rounded-3xl border-2 border-dashed p-8 text-center transition ${
+            draggingImages
+              ? "border-jungle-300 bg-jungle-900/50"
+              : "border-jungle-900/70 bg-black/20"
+          }`}
+        >
+          <p className="text-4xl mb-3">📸</p>
+
+          <p className="font-semibold text-white mb-2">
+            Drag and drop retreat images here
+          </p>
+
+          <p className="text-sm text-zinc-400 mb-5">
+            First image is the main retreat image.
+          </p>
+
+          <label className="inline-flex cursor-pointer rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition">
+            Choose Images
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files) addImages(e.target.files);
+              }}
+            />
+          </label>
+        </div>
+
+        {form.images.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+            {form.images.map((image, index) => (
+              <div
+                key={`${image}-${index}`}
+                draggable
+                onDragStart={(e) =>
+                  e.dataTransfer.setData("retreat-image-index", String(index))
+                }
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  const from = Number(
+                    e.dataTransfer.getData("retreat-image-index")
+                  );
+
+                  if (!Number.isNaN(from)) {
+                    moveImage(from, index);
+                  }
+                }}
+                className="relative rounded-2xl overflow-hidden border border-jungle-900/60 bg-black/30 cursor-grab"
+              >
+                <img
+                  src={image}
+                  alt={`Retreat image ${index + 1}`}
+                  className="w-full h-36 object-cover"
+                />
+
+                {index === 0 ? (
+                  <span className="absolute bottom-2 left-2 rounded-lg bg-jungle-800/90 text-xs px-2 py-1 text-jungle-200">
+                    Main Image
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setMainImage(index)}
+                    className="absolute bottom-2 left-2 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
+                  >
+                    Set Main
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => moveImage(index, index - 1)}
+                  className="absolute top-2 right-16 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
+                >
+                  ←
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => moveImage(index, index + 1)}
+                  className="absolute top-2 right-9 rounded-lg bg-black/80 hover:bg-jungle-800 text-xs px-2 py-1 text-white"
+                >
+                  →
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => removeImage(index)}
+                  className="absolute top-2 right-2 rounded-lg bg-red-900/80 hover:bg-red-800 text-white text-xs px-2 py-1"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <label className="block text-sm text-zinc-300 mb-2">
+          Retreat Videos
+        </label>
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDraggingVideos(true);
+          }}
+          onDragLeave={() => setDraggingVideos(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDraggingVideos(false);
+            addVideos(e.dataTransfer.files);
+          }}
+          className={`rounded-3xl border-2 border-dashed p-8 text-center transition ${
+            draggingVideos
+              ? "border-jungle-300 bg-jungle-900/50"
+              : "border-jungle-900/70 bg-black/20"
+          }`}
+        >
+          <p className="text-4xl mb-3">🎥</p>
+
+          <p className="font-semibold text-white mb-2">
+            Drag and drop retreat videos here
+          </p>
+
+          <p className="text-sm text-zinc-400 mb-5">
+            Upload videos to show retreat previews, testimonials, or location
+            clips.
+          </p>
+
+          <label className="inline-flex cursor-pointer rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition">
+            Choose Videos
+            <input
+              type="file"
+              accept="video/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files) addVideos(e.target.files);
+              }}
+            />
+          </label>
+        </div>
+
+        {form.videos.length > 0 && (
+          <div className="space-y-4 mt-5">
+            {form.videos.map((video, index) => (
+              <div
+                key={`${video}-${index}`}
+                draggable
+                onDragStart={(e) =>
+                  e.dataTransfer.setData("retreat-video-index", String(index))
+                }
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  const from = Number(
+                    e.dataTransfer.getData("retreat-video-index")
+                  );
+
+                  if (!Number.isNaN(from)) {
+                    moveVideo(from, index);
+                  }
+                }}
+                className="rounded-2xl border border-jungle-900/60 bg-black/30 p-4"
+              >
+                <video
+                  src={video}
+                  controls
+                  className="w-full rounded-2xl border border-jungle-900/60"
+                />
+
+                <div className="flex flex-wrap gap-3 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => moveVideo(index, index - 1)}
+                    className="rounded-xl bg-black/40 hover:bg-jungle-900/60 px-4 py-2 text-sm"
+                  >
+                    Move Up
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => moveVideo(index, index + 1)}
+                    className="rounded-xl bg-black/40 hover:bg-jungle-900/60 px-4 py-2 text-sm"
+                  >
+                    Move Down
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => removeVideo(index)}
+                    className="rounded-xl bg-red-900/60 hover:bg-red-800 px-4 py-2 text-sm text-red-100"
+                  >
+                    Remove Video
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {uploadProgress > 0 && (
+        <div>
+          <div className="h-3 rounded-full bg-black/40 overflow-hidden">
+            <div
+              className="h-full bg-jungle-500 transition-all"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+
+          <p className="text-xs text-zinc-400 mt-2">
+            Processing upload... {uploadProgress}%
+          </p>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm text-zinc-300 mb-2">
+          What’s Included
+        </label>
+
+        <textarea
+          rows={6}
+          value={form.includes.join("\n")}
+          onChange={(e) => updateIncludes(e.target.value)}
+          placeholder={`Airport pickup\nDaily meals\nLodging included\nGuided plant walk\nCeremony preparation`}
+          className="w-full rounded-2xl bg-black/20 border border-jungle-900/60 px-4 py-3 outline-none focus:border-jungle-500"
+        />
+
+        <p className="text-xs text-zinc-500 mt-2">
+          Each line becomes one bullet point on the retreat page.
+        </p>
       </div>
 
       <button
         disabled={loading}
         className="rounded-2xl bg-jungle-600 hover:bg-jungle-500 disabled:opacity-50 px-8 py-4 font-semibold"
       >
-        {loading ? "Saving..." : "Save Retreat"}
+        {loading ? "Saving Retreat..." : "Save Retreat"}
       </button>
     </form>
   );
