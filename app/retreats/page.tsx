@@ -5,6 +5,7 @@ import { Calendar, MapPin, Users, Clock } from "lucide-react";
 import { db } from "@/lib/db";
 import AddRetreatToCartButton from "@/components/AddRetreatToCartButton";
 import BuyRetreatNowButton from "@/components/BuyRetreatNowButton";
+import CartUrgencyNote from "@/components/CartUrgencyNote";
 
 function getRetreatPrice(retreat: {
   price: number;
@@ -233,6 +234,8 @@ export default async function RetreatsPage() {
                             </p>
                           )}
                         </div>
+
+                        {!soldOut && <CartUrgencyNote retreatId={retreat.id} />}
                       </div>
 
                       {soldOut ? (
