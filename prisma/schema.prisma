@@ -101,7 +101,6 @@ model CartItem {
   retreat   Retreat?        @relation(fields: [retreatId], references: [id], onDelete: Cascade)
 
   @@unique([cartId, variantId])
-  @@unique([cartId, retreatId])
 }
 
 model Retreat {
