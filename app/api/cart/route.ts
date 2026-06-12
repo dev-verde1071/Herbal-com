@@ -165,12 +165,10 @@ export async function POST(req: Request) {
         );
       }
 
-      const existing = await db.cartItem.findUnique({
+      const existing = await db.cartItem.findFirst({
         where: {
-          cartId_retreatId: {
-            cartId: cart.id,
-            retreatId,
-          },
+          cartId: cart.id,
+          retreatId,
         },
       });
 
@@ -277,12 +275,10 @@ export async function PUT(req: Request) {
     const cart = await getOrCreateCart(dbUser.id);
 
     if (retreatId) {
-      const item = await db.cartItem.findUnique({
+      const item = await db.cartItem.findFirst({
         where: {
-          cartId_retreatId: {
-            cartId: cart.id,
-            retreatId,
-          },
+          cartId: cart.id,
+          retreatId,
         },
       });
 
