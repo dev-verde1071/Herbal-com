@@ -2,6 +2,8 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { resend, FROM_EMAIL } from "@/lib/resend";
+import OrderConfirmation from "@/emails/OrderConfirmation";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,43 @@ function getRetreatPrice(retreat: any, metadataPrice?: string) {
   }
 
   return retreat.price;
+}
+
+async function sendConfirmationEmail(orderId: string) {
+  try {
+    const order = await db.order.findUnique({
+      where: {
+        id: orderId,
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!order || !order.email || !resend) return;
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: order.email,
+      subject:
+        order.orderType === "RETREAT"
+          ? "Your Herbal Communities Retreat Booking Is Confirmed"
+          : "Your Herbal Communities Order Is Confirmed",
+      react: OrderConfirmation({
+        customerName: order.shippingName || "there",
+        orderId: order.id,
+        total: Number(order.total || 0),
+        items: order.items.map((item) => ({
+          name: item.name,
+          qty: item.qty,
+          price: item.price,
+          image: item.image || undefined,
+        })),
+      }),
+    });
+  } catch (error) {
+    console.error("Order confirmation email error:", error);
+  }
 }
 
 export async function POST(req: Request) {
@@ -307,6 +346,8 @@ export async function POST(req: Request) {
         });
       }
     }
+
+    await sendConfirmationEmail(order.id);
 
     return new Response("OK", { status: 200 });
   } catch (error) {
