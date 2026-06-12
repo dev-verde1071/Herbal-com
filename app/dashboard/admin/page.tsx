@@ -71,6 +71,12 @@ const sections = [
         emoji: "🏕️",
       },
       {
+      title: "Retreat Orders",
+      href: "/dashboard/admin/orders/retreats",
+      desc: "View retreat bookings, payments, and retreat order history",
+      emoji: "🎟️",
+      },
+      {
         title: "Guests",
         href: "/dashboard/admin/retreats/guests",
         desc: "View retreat guests, contact details, and booking information",
