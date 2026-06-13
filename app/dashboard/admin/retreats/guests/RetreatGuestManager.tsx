@@ -34,6 +34,8 @@ export default function RetreatGuestManager({ guests }: { guests: Guest[] }) {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeReason, setRemoveReason] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, Guest>>({});
 
   const filteredGuests = useMemo(() => {
@@ -109,6 +111,43 @@ export default function RetreatGuestManager({ guests }: { guests: Guest[] }) {
     router.refresh();
   }
 
+  async function removeGuest(id: string) {
+    const reason = String(removeReason[id] || "").trim();
+
+    if (!reason) {
+      alert("Please enter a reason before removing this guest.");
+      return;
+    }
+
+    const confirmed = confirm(
+      "This will remove the guest, issue a Stripe refund, reopen one retreat spot, and email the guest. Continue?"
+    );
+
+    if (!confirmed) return;
+
+    setRemovingId(id);
+
+    const res = await fetch(`/api/admin/retreat-guests/${id}/remove`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    setRemovingId(null);
+
+    if (!res.ok) {
+      alert(data?.error || "Failed to remove guest.");
+      return;
+    }
+
+    alert("Guest removed, refund created, and email sent.");
+    router.refresh();
+  }
+
   return (
     <div className="space-y-6">
       <div className="glass rounded-3xl p-6 border border-jungle-900/60">
@@ -133,11 +172,16 @@ export default function RetreatGuestManager({ guests }: { guests: Guest[] }) {
           {filteredGuests.map((guest) => {
             const isEditing = editingId === guest.id;
             const draft = drafts[guest.id] || guest;
+            const removed = guest.status === "REMOVED_REFUNDED";
 
             return (
               <div
                 key={guest.id}
-                className="glass rounded-3xl p-6 border border-jungle-900/60"
+                className={`glass rounded-3xl p-6 border ${
+                  removed
+                    ? "border-red-900/60 opacity-75"
+                    : "border-jungle-900/60"
+                }`}
               >
                 <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
                   <div className="flex-1">
@@ -263,12 +307,51 @@ export default function RetreatGuestManager({ guests }: { guests: Guest[] }) {
                         <button
                           type="button"
                           onClick={() => startEditing(guest)}
-                          className="rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition"
+                          disabled={removed}
+                          className="rounded-2xl bg-jungle-600 hover:bg-jungle-500 disabled:opacity-50 px-6 py-3 font-semibold transition"
                         >
                           Edit Guest
                         </button>
                       )}
                     </div>
+
+                    {!removed && (
+                      <div className="rounded-2xl bg-red-950/30 border border-red-900/60 p-4">
+                        <h3 className="font-semibold text-red-300 mb-2">
+                          Remove Guest & Issue Refund
+                        </h3>
+
+                        <p className="text-sm text-zinc-400 mb-3">
+                          Enter the reason for removing this guest. This reason
+                          will be emailed to the guest and a refund will be
+                          issued through Stripe.
+                        </p>
+
+                        <textarea
+                          rows={4}
+                          value={removeReason[guest.id] || ""}
+                          onChange={(e) =>
+                            setRemoveReason((prev) => ({
+                              ...prev,
+                              [guest.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Reason for removing guest..."
+                          className="w-full rounded-xl bg-black/20 border border-red-900/60 px-3 py-2 outline-none focus:border-red-500"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => removeGuest(guest.id)}
+                          disabled={removingId === guest.id}
+                          className="mt-3 w-full rounded-2xl bg-red-800 hover:bg-red-700 disabled:opacity-50 px-6 py-3 font-semibold transition"
+                        >
+                          {removingId === guest.id
+                            ? "Removing & Refunding..."
+                            : "Remove Guest, Refund, and Email"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
