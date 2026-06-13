@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { resend, FROM_EMAIL } from "@/lib/resend";
+import { resend } from "@/lib/resend";
+import { RETREATS_FROM_EMAIL } from "@/lib/emailFrom";
 import RetreatGuestIntakeSubmittedEmail from "@/emails/RetreatGuestIntakeSubmittedEmail";
 
 export async function POST(
@@ -11,7 +12,7 @@ export async function POST(
     const { token } = await params;
     const body = await req.json();
 
-    const guest = await db.retreatGuest.findUnique({
+    const guest = await db.retreatGuest.findFirst({
       where: {
         intakeToken: token,
       },
@@ -79,7 +80,7 @@ export async function POST(
 
     if (resend && updatedGuest.email) {
       await resend.emails.send({
-        from: FROM_EMAIL,
+        from: RETREATS_FROM_EMAIL,
         to: updatedGuest.email,
         subject: "Your Herbal Communities Guest Information Was Submitted",
         react: RetreatGuestIntakeSubmittedEmail({
