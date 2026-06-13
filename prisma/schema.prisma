@@ -104,31 +104,31 @@ model CartItem {
 }
 
 model Retreat {
-  id              String    @id @default(cuid())
-  name            String
-  slug            String    @unique
-  description     String?   @db.Text
-  location        String?
-  country         String?
-  duration        String?
-  price           Float
-  compareAt       Float?
-  clearanceActive Boolean   @default(false)
+  id               String    @id @default(cuid())
+  name             String
+  slug             String    @unique
+  description      String?   @db.Text
+  location         String?
+  country          String?
+  duration         String?
+  price            Float
+  compareAt        Float?
+  clearanceActive  Boolean   @default(false)
   clearancePercent Int?
-  clearancePrice  Float?
-  spots           Int       @default(0)
-  spotsLeft       Int       @default(0)
-  inStock         Boolean   @default(true)
-  images          String[]
-  videos          String[]
-  featured        Boolean   @default(false)
-  startDate       DateTime?
-  endDate         DateTime?
-  includes        String[]
-  metadata        Json?
-  active          Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  clearancePrice   Float?
+  spots            Int       @default(0)
+  spotsLeft        Int       @default(0)
+  inStock          Boolean   @default(true)
+  images           String[]
+  videos           String[]
+  featured         Boolean   @default(false)
+  startDate        DateTime?
+  endDate          DateTime?
+  includes         String[]
+  metadata         Json?
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   orderItems OrderItem[]
   cartItems  CartItem[]
@@ -136,7 +136,7 @@ model Retreat {
 }
 
 model RetreatGuest {
-  id                  String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   userId              String?
   retreatId           String?
   orderId             String?
@@ -149,15 +149,20 @@ model RetreatGuest {
   dietaryRestrictions String?
   medicalNotes        String?
   travelNotes         String?
+  nearestAirportName  String?
+  nearestAirportCode  String?
   adminNotes          String?
-  status              String   @default("BOOKED")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  status              String    @default("BOOKED")
+  intakeToken         String?   @unique
+  intakeSubmitted     Boolean   @default(false)
+  intakeSubmittedAt   DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  user                User?       @relation(fields: [userId], references: [id])
-  retreat             Retreat?    @relation(fields: [retreatId], references: [id])
-  order               Order?      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderItem           OrderItem?  @relation(fields: [orderItemId], references: [id])
+  user      User?      @relation(fields: [userId], references: [id])
+  retreat   Retreat?   @relation(fields: [retreatId], references: [id])
+  order     Order?     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
 }
 
 model WholesaleApplication {
@@ -225,9 +230,9 @@ model Order {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  user            User?       @relation(fields: [userId], references: [id])
-  items           OrderItem[]
-  retreatGuests   RetreatGuest[]
+  user          User?          @relation(fields: [userId], references: [id])
+  items         OrderItem[]
+  retreatGuests RetreatGuest[]
 }
 
 enum OrderStatus {
@@ -250,9 +255,9 @@ model OrderItem {
   image     String?
   createdAt DateTime @default(now())
 
-  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product?        @relation(fields: [productId], references: [id])
-  variant   ProductVariant? @relation(fields: [variantId], references: [id])
-  retreat   Retreat?        @relation(fields: [retreatId], references: [id])
-  guests    RetreatGuest[]
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?        @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+  retreat Retreat?        @relation(fields: [retreatId], references: [id])
+  guests  RetreatGuest[]
 }
