@@ -3,8 +3,9 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { resend, FROM_EMAIL } from "@/lib/resend";
+import { resend } from "@/lib/resend";
 import OrderConfirmation from "@/emails/OrderConfirmation";
+import { getFromEmailByOrderType, RETREATS_FROM_EMAIL } from "@/lib/emailFrom";
 
 export const dynamic = "force-dynamic";
 
@@ -64,12 +65,14 @@ async function sendConfirmationEmail(orderId: string) {
     }
 
     await resend.emails.send({
-      from: FROM_EMAIL,
+      from: getFromEmailByOrderType(order.orderType),
       to: order.email,
       subject:
         order.orderType === "RETREAT"
           ? "Your Herbal Communities Retreat Booking Is Confirmed"
-          : "Your Herbal Communities Order Is Confirmed",
+          : order.orderType === "WHOLESALE"
+            ? "Your Herbal Communities Wholesale Order Is Confirmed"
+            : "Your Herbal Communities Order Is Confirmed",
       react: OrderConfirmation({
         customerName: order.shippingName || "there",
         orderId: order.id,
