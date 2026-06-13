@@ -14,7 +14,7 @@ export default function SuccessPage() {
 
         <p className="text-zinc-300 leading-relaxed mb-8">
           Your payment was completed successfully. A confirmation email will be
-          sent if email delivery is configured.
+          sent to you shortly.
         </p>
 
         <Link
