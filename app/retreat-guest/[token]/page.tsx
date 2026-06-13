@@ -11,7 +11,7 @@ export default async function RetreatGuestIntakePage({
 }) {
   const { token } = await params;
 
-  const guest = await db.retreatGuest.findUnique({
+  const guest = await db.retreatGuest.findFirst({
     where: {
       intakeToken: token,
     },
