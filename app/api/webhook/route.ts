@@ -33,10 +33,35 @@ async function sendConfirmationEmail(orderId: string) {
       },
       include: {
         items: true,
+        retreatGuests: true,
       },
     });
 
     if (!order || !order.email || !resend) return;
+
+    let intakeUrl: string | null = null;
+
+    if (order.orderType === "RETREAT") {
+      let guest = order.retreatGuests[0];
+
+      if (guest && !guest.intakeToken) {
+        guest = await db.retreatGuest.update({
+          where: {
+            id: guest.id,
+          },
+          data: {
+            intakeToken: crypto.randomBytes(24).toString("hex"),
+          },
+        });
+      }
+
+      if (guest?.intakeToken) {
+        const siteUrl =
+          process.env.NEXT_PUBLIC_SITE_URL || "https://herbalcommunities.com";
+
+        intakeUrl = `${siteUrl}/retreat-guest/${guest.intakeToken}`;
+      }
+    }
 
     await resend.emails.send({
       from: FROM_EMAIL,
@@ -49,6 +74,8 @@ async function sendConfirmationEmail(orderId: string) {
         customerName: order.shippingName || "there",
         orderId: order.id,
         total: Number(order.total || 0),
+        orderType: order.orderType,
+        intakeUrl,
         items: order.items.map((item) => ({
           name: item.name,
           qty: item.qty,
