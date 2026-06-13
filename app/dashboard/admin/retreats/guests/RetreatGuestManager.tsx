@@ -10,6 +10,8 @@ type Guest = {
   phone?: string | null;
   emergencyContact?: string | null;
   emergencyPhone?: string | null;
+  nearestAirportName?: string | null;
+  nearestAirportCode?: string | null;
   dietaryRestrictions?: string | null;
   medicalNotes?: string | null;
   travelNotes?: string | null;
@@ -218,6 +220,8 @@ export default function RetreatGuestManager({ guests }: { guests: Guest[] }) {
                         ["phone", "Phone"],
                         ["emergencyContact", "Emergency Contact"],
                         ["emergencyPhone", "Emergency Phone"],
+                        ["nearestAirportName", "Nearest Airport"],
+                        ["nearestAirportCode", "Airport Code"],
                         ["status", "Status"],
                       ].map(([key, label]) => (
                         <div key={key}>
