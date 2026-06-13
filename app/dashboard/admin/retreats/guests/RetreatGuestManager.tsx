@@ -50,6 +50,8 @@ export default function RetreatGuestManager({ guests }: { guests: Guest[] }) {
         guest.phone,
         guest.emergencyContact,
         guest.emergencyPhone,
+        guest.nearestAirportName,
+        guest.nearestAirportCode,
         guest.dietaryRestrictions,
         guest.medicalNotes,
         guest.travelNotes,
