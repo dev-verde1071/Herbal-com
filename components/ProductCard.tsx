@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { CATEGORY_ICONS, CATEGORY_LABELS, formatPrice } from "@/lib/utils";
 
@@ -26,11 +25,25 @@ type Product = {
   variants: Variant[];
 };
 
+function isValidImageUrl(image?: string | null) {
+  return Boolean(
+    image &&
+      typeof image === "string" &&
+      image.trim().length > 0 &&
+      !image.startsWith("data:")
+  );
+}
+
 export default function ProductCard({ product }: { product: Product }) {
   const firstVariant = product.variants?.[0];
 
-  const firstVariantImage = firstVariant?.images?.[0] || null;
-  const productImage = product.images?.[0] || firstVariantImage || null;
+  const productImages = (product.images || []).filter(isValidImageUrl);
+
+  const variantImages = (product.variants || [])
+    .flatMap((variant) => variant.images || [])
+    .filter(isValidImageUrl);
+
+  const productImage = productImages[0] || variantImages[0] || null;
 
   const isWholesale = product.type === "WHOLESALE";
 
@@ -59,11 +72,10 @@ export default function ProductCard({ product }: { product: Product }) {
     >
       <div className="relative aspect-[4/3] bg-black/30 overflow-hidden">
         {productImage ? (
-          <Image
+          <img
             src={productImage}
             alt={product.name}
-            fill
-            className="object-cover group-hover:scale-105 transition duration-500"
+            className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition duration-500"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-6xl text-jungle-600">
@@ -111,9 +123,7 @@ export default function ProductCard({ product }: { product: Product }) {
           <div>
             {firstVariant ? (
               <>
-                <p className="text-xs text-zinc-500 mb-1">
-                  Starting at
-                </p>
+                <p className="text-xs text-zinc-500 mb-1">Starting at</p>
 
                 <p
                   className="font-bold text-xl"
@@ -123,21 +133,15 @@ export default function ProductCard({ product }: { product: Product }) {
                 </p>
               </>
             ) : (
-              <p className="text-zinc-500 text-sm">
-                Pricing coming soon
-              </p>
+              <p className="text-zinc-500 text-sm">Pricing coming soon</p>
             )}
           </div>
 
           <div className="text-right">
             {inStock ? (
-              <p className="text-green-400 text-xs">
-                {totalQty} available
-              </p>
+              <p className="text-green-400 text-xs">{totalQty} available</p>
             ) : (
-              <p className="text-red-400 text-xs">
-                Out of stock
-              </p>
+              <p className="text-red-400 text-xs">Out of stock</p>
             )}
 
             <p className="text-zinc-500 text-xs mt-1">
