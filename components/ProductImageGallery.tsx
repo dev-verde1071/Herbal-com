@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { X, ZoomIn } from "lucide-react";
 
@@ -10,16 +9,28 @@ type Props = {
   fallbackIcon?: string;
 };
 
+function isValidImageUrl(image?: string | null) {
+  return Boolean(
+    image &&
+      typeof image === "string" &&
+      image.trim().length > 0 &&
+      !image.startsWith("data:")
+  );
+}
+
 export default function ProductImageGallery({
   images,
   name,
   fallbackIcon = "🌿",
 }: Props) {
-  const cleanImages = Array.isArray(images) ? images.filter(Boolean) : [];
+  const cleanImages = Array.isArray(images)
+    ? images.filter((image) => isValidImageUrl(image))
+    : [];
+
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [zoomOpen, setZoomOpen] = useState(false);
 
-  const selectedImage = cleanImages[selectedIndex];
+  const selectedImage = cleanImages[selectedIndex] || cleanImages[0] || null;
 
   return (
     <>
@@ -32,11 +43,10 @@ export default function ProductImageGallery({
         >
           {selectedImage ? (
             <>
-              <Image
+              <img
                 src={selectedImage}
                 alt={name}
-                fill
-                className="object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
               />
 
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition flex items-center justify-center">
@@ -66,11 +76,10 @@ export default function ProductImageGallery({
                     : "border-jungle-900/60 hover:border-jungle-500"
                 }`}
               >
-                <Image
+                <img
                   src={img}
                   alt={`${name} image ${index + 1}`}
-                  fill
-                  className="object-cover"
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
               </button>
             ))}
@@ -89,11 +98,10 @@ export default function ProductImageGallery({
           </button>
 
           <div className="relative w-full max-w-5xl h-[80vh]">
-            <Image
+            <img
               src={selectedImage}
               alt={name}
-              fill
-              className="object-contain"
+              className="h-full w-full object-contain"
             />
           </div>
         </div>
