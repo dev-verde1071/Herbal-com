@@ -8,6 +8,10 @@ import ProductImageGallery from "@/components/ProductImageGallery";
 import CartUrgencyNote from "@/components/CartUrgencyNote";
 import { formatPrice, CATEGORY_LABELS, CATEGORY_ICONS } from "@/lib/utils";
 
+function isPublicImageUrl(image?: string | null) {
+  return Boolean(image && image.startsWith("http"));
+}
+
 export default async function ProductPage({
   params,
 }: {
@@ -28,12 +32,17 @@ export default async function ProductPage({
 
   const fallbackIcon = CATEGORY_ICONS[product.category] || "🌿";
 
-  const allImages = [
-    ...(product.images || []),
-    ...product.variants.flatMap((variant) => variant.images || []),
-  ].filter(Boolean);
+  const productImages = (product.images || []).filter(isPublicImageUrl);
 
-  const uniqueImages = Array.from(new Set(allImages));
+  const variantImages = product.variants
+    .flatMap((variant) => variant.images || [])
+    .filter(isPublicImageUrl);
+
+  const mainFallbackImage = productImages[0] || variantImages[0] || null;
+
+  const uniqueImages = Array.from(
+    new Set([...productImages, ...variantImages])
+  );
 
   return (
     <div className="min-h-screen py-12 px-6">
@@ -72,8 +81,12 @@ export default async function ProductPage({
 
             <div className="space-y-4">
               {product.variants.map((variant) => {
+                const variantImages = (variant.images || []).filter(
+                  isPublicImageUrl
+                );
+
                 const variantImage =
-                  variant.images?.[0] || product.images?.[0] || null;
+                  variantImages[0] || mainFallbackImage || null;
 
                 const unavailable = !variant.inStock || variant.qty <= 0;
 
