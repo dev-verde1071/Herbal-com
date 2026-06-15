@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { uploadFiles } from "@/lib/uploadthing";
 
 type RetreatFormData = {
   id?: string;
@@ -27,6 +28,10 @@ type RetreatFormData = {
   includes: string[];
   active: boolean;
 };
+
+function getUploadedUrl(file: any) {
+  return file?.ufsUrl || file?.url || file?.appUrl || "";
+}
 
 export default function RetreatForm({
   retreat,
@@ -77,51 +82,6 @@ export default function RetreatForm({
       .replace(/^-+|-+$/g, "");
   }
 
-  function compressImage(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        const img = new Image();
-
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const maxWidth = 1400;
-          const scale = Math.min(1, maxWidth / img.width);
-
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-
-          const ctx = canvas.getContext("2d");
-
-          if (!ctx) {
-            reject(new Error("Image compression failed."));
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.78));
-        };
-
-        img.onerror = reject;
-        img.src = String(reader.result);
-      };
-
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function readVideo(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function processImageFiles(files: FileList | File[]) {
     const imageFiles = Array.from(files).filter((file) =>
       file.type.startsWith("image/")
@@ -129,17 +89,17 @@ export default function RetreatForm({
 
     if (imageFiles.length === 0) return [];
 
-    const results: string[] = [];
+    setUploadProgress(15);
 
-    for (let i = 0; i < imageFiles.length; i++) {
-      const compressed = await compressImage(imageFiles[i]);
-      results.push(compressed);
-      setUploadProgress(Math.round(((i + 1) / imageFiles.length) * 100));
-    }
+    const uploaded = await uploadFiles("imageUploader", {
+      files: imageFiles,
+    });
+
+    setUploadProgress(100);
 
     setTimeout(() => setUploadProgress(0), 800);
 
-    return results;
+    return uploaded.map(getUploadedUrl).filter(Boolean);
   }
 
   async function processVideoFiles(files: FileList | File[]) {
@@ -149,35 +109,47 @@ export default function RetreatForm({
 
     if (videoFiles.length === 0) return [];
 
-    const results: string[] = [];
+    setUploadProgress(15);
 
-    for (let i = 0; i < videoFiles.length; i++) {
-      const video = await readVideo(videoFiles[i]);
-      results.push(video);
-      setUploadProgress(Math.round(((i + 1) / videoFiles.length) * 100));
-    }
+    const uploaded = await uploadFiles("videoUploader", {
+      files: videoFiles,
+    });
+
+    setUploadProgress(100);
 
     setTimeout(() => setUploadProgress(0), 800);
 
-    return results;
+    return uploaded.map(getUploadedUrl).filter(Boolean);
   }
 
   async function addImages(files: FileList | File[]) {
-    const uploaded = await processImageFiles(files);
+    try {
+      const uploaded = await processImageFiles(files);
 
-    setForm((prev) => ({
-      ...prev,
-      images: [...(prev.images || []), ...uploaded],
-    }));
+      setForm((prev) => ({
+        ...prev,
+        images: [...(prev.images || []), ...uploaded],
+      }));
+    } catch (error) {
+      console.error("Retreat image upload error:", error);
+      alert("Failed to upload retreat image.");
+      setUploadProgress(0);
+    }
   }
 
   async function addVideos(files: FileList | File[]) {
-    const uploaded = await processVideoFiles(files);
+    try {
+      const uploaded = await processVideoFiles(files);
 
-    setForm((prev) => ({
-      ...prev,
-      videos: [...(prev.videos || []), ...uploaded],
-    }));
+      setForm((prev) => ({
+        ...prev,
+        videos: [...(prev.videos || []), ...uploaded],
+      }));
+    } catch (error) {
+      console.error("Retreat video upload error:", error);
+      alert("Failed to upload retreat video.");
+      setUploadProgress(0);
+    }
   }
 
   function removeImage(index: number) {
@@ -696,7 +668,8 @@ export default function RetreatForm({
           </p>
 
           <p className="text-sm text-zinc-400 mb-5">
-            First image is the main retreat image.
+            Images upload to UploadThing and save as public URLs for Stripe
+            checkout.
           </p>
 
           <label className="inline-flex cursor-pointer rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition">
@@ -812,8 +785,7 @@ export default function RetreatForm({
           </p>
 
           <p className="text-sm text-zinc-400 mb-5">
-            Upload videos to show retreat previews, testimonials, or location
-            clips.
+            Videos upload to UploadThing and save as public URLs.
           </p>
 
           <label className="inline-flex cursor-pointer rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition">
@@ -898,7 +870,7 @@ export default function RetreatForm({
           </div>
 
           <p className="text-xs text-zinc-400 mt-2">
-            Processing upload... {uploadProgress}%
+            Uploading media... {uploadProgress}%
           </p>
         </div>
       )}
