@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import AdminProductList from "./AdminProductList";
+import ProductImageMigrationButton from "./ProductImageMigrationButton";
 
 export default async function AdminProductsPage() {
   const admin = await isAdmin();
@@ -48,12 +49,16 @@ export default async function AdminProductsPage() {
             </p>
           </div>
 
-          <Link
-            href="/dashboard/admin/products/new"
-            className="rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition"
-          >
-            + New Retail Product
-          </Link>
+          <div className="flex flex-col md:flex-row gap-3 md:items-center">
+            <ProductImageMigrationButton />
+
+            <Link
+              href="/dashboard/admin/products/new"
+              className="rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition text-center"
+            >
+              + New Retail Product
+            </Link>
+          </div>
         </div>
 
         <AdminProductList products={products as any} productType="RETAIL" />
