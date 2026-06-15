@@ -5,7 +5,7 @@ import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { resend } from "@/lib/resend";
 import OrderConfirmation from "@/emails/OrderConfirmation";
-import { getFromEmailByOrderType, RETREATS_FROM_EMAIL } from "@/lib/emailFrom";
+import { getFromEmailByOrderType } from "@/lib/emailFrom";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,42 @@ function getRetreatPrice(retreat: any, metadataPrice?: string) {
   }
 
   return retreat.price;
+}
+
+function getCheckoutShipping(session: Stripe.Checkout.Session) {
+  const s = session as any;
+
+  const collectedShipping = s.collected_information?.shipping_details;
+  const legacyShipping = s.shipping_details;
+  const customerDetails = s.customer_details;
+
+  const shipping = collectedShipping || legacyShipping || null;
+
+  return {
+    name:
+      shipping?.name ||
+      customerDetails?.name ||
+      customerDetails?.individual_name ||
+      null,
+    line1:
+      shipping?.address?.line1 ||
+      null,
+    line2:
+      shipping?.address?.line2 ||
+      null,
+    city:
+      shipping?.address?.city ||
+      null,
+    state:
+      shipping?.address?.state ||
+      null,
+    postalCode:
+      shipping?.address?.postal_code ||
+      null,
+    country:
+      shipping?.address?.country ||
+      null,
+  };
 }
 
 async function sendConfirmationEmail(orderId: string) {
@@ -126,7 +162,7 @@ export async function POST(req: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     const metadata = session.metadata || {};
     const customerDetails = session.customer_details;
-    const shipping = session.shipping_details;
+    const shipping = getCheckoutShipping(session);
 
     const existingOrder = await db.order.findUnique({
       where: {
@@ -138,26 +174,28 @@ export async function POST(req: Request) {
       return new Response("Order already processed", { status: 200 });
     }
 
+    const orderType = metadata.orderType || "RETAIL";
+
     const order = await db.order.create({
       data: {
         stripeSessionId: session.id,
         status: "PAID",
-        orderType: metadata.orderType || "RETAIL",
+        orderType,
         total: Number((session.amount_total || 0) / 100),
         currency: session.currency || "usd",
         email: customerDetails?.email || session.customer_email || undefined,
         userId: metadata.userId || undefined,
 
-        shippingName: shipping?.name || customerDetails?.name || undefined,
-        shippingLine1: shipping?.address?.line1 || undefined,
-        shippingLine2: shipping?.address?.line2 || undefined,
-        shippingCity: shipping?.address?.city || undefined,
-        shippingState: shipping?.address?.state || undefined,
-        shippingPostal: shipping?.address?.postal_code || undefined,
-        shippingCountry: shipping?.address?.country || undefined,
+        shippingName: shipping.name || undefined,
+        shippingLine1: shipping.line1 || undefined,
+        shippingLine2: shipping.line2 || undefined,
+        shippingCity: shipping.city || undefined,
+        shippingState: shipping.state || undefined,
+        shippingPostal: shipping.postalCode || undefined,
+        shippingCountry: shipping.country || undefined,
 
         shippingStatus:
-          metadata.orderType === "RETREAT" ? "NOT_REQUIRED" : "NOT_CREATED",
+          orderType === "RETREAT" ? "NOT_REQUIRED" : "NOT_CREATED",
 
         metadata,
       },
