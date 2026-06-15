@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { uploadFiles } from "@/lib/uploadthing";
 import { PRODUCT_CATEGORIES } from "@/lib/utils";
 
 type ProductMode = "RETAIL" | "WHOLESALE";
@@ -30,6 +31,10 @@ type ProductFormData = {
   featured: boolean;
   variants?: Variant[];
 };
+
+function getUploadedUrl(file: any) {
+  return file?.ufsUrl || file?.url || file?.appUrl || "";
+}
 
 export default function ProductForm({
   product,
@@ -84,83 +89,60 @@ export default function ProductForm({
           ],
   });
 
-  function compressImage(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        const img = new Image();
-
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const maxWidth = 1200;
-          const scale = Math.min(1, maxWidth / img.width);
-
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-
-          const ctx = canvas.getContext("2d");
-
-          if (!ctx) {
-            reject(new Error("Image compression failed."));
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.78));
-        };
-
-        img.onerror = reject;
-        img.src = String(reader.result);
-      };
-
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function processFiles(files: FileList | File[]) {
+  async function processImageFiles(files: FileList | File[]) {
     const imageFiles = Array.from(files).filter((file) =>
       file.type.startsWith("image/")
     );
 
     if (imageFiles.length === 0) return [];
 
-    const results: string[] = [];
+    setUploadProgress(15);
 
-    for (let i = 0; i < imageFiles.length; i++) {
-      const compressed = await compressImage(imageFiles[i]);
-      results.push(compressed);
-      setUploadProgress(Math.round(((i + 1) / imageFiles.length) * 100));
-    }
+    const uploaded = await uploadFiles("imageUploader", {
+      files: imageFiles,
+    });
+
+    setUploadProgress(100);
 
     setTimeout(() => setUploadProgress(0), 800);
 
-    return results;
+    return uploaded.map(getUploadedUrl).filter(Boolean);
   }
 
   async function addMainImages(files: FileList | File[]) {
-    const uploaded = await processFiles(files);
+    try {
+      const uploaded = await processImageFiles(files);
 
-    setForm((prev) => ({
-      ...prev,
-      images: [...(prev.images || []), ...uploaded],
-    }));
+      setForm((prev) => ({
+        ...prev,
+        images: [...(prev.images || []), ...uploaded],
+      }));
+    } catch (error) {
+      console.error("Product image upload error:", error);
+      alert("Failed to upload product image.");
+      setUploadProgress(0);
+    }
   }
 
   async function addVariantImages(index: number, files: FileList | File[]) {
-    const uploaded = await processFiles(files);
-    const updated = [...(form.variants || [])];
+    try {
+      const uploaded = await processImageFiles(files);
+      const updated = [...(form.variants || [])];
 
-    updated[index] = {
-      ...updated[index],
-      images: [...(updated[index].images || []), ...uploaded],
-    };
+      updated[index] = {
+        ...updated[index],
+        images: [...(updated[index].images || []), ...uploaded],
+      };
 
-    setForm({
-      ...form,
-      variants: updated,
-    });
+      setForm({
+        ...form,
+        variants: updated,
+      });
+    } catch (error) {
+      console.error("Variant image upload error:", error);
+      alert("Failed to upload variant image.");
+      setUploadProgress(0);
+    }
   }
 
   function removeMainImage(index: number) {
@@ -321,9 +303,7 @@ export default function ProductForm({
       className="glass rounded-3xl p-8 border border-jungle-900/60 space-y-8"
     >
       <div className="rounded-2xl bg-black/20 border border-jungle-900/60 p-4">
-        <p className="text-sm text-zinc-400">
-          Product Type
-        </p>
+        <p className="text-sm text-zinc-400">Product Type</p>
 
         <p className="font-semibold text-jungle-300 mt-1">
           {isWholesale ? "Wholesale Product" : "Retail Product"}
@@ -480,7 +460,8 @@ export default function ProductForm({
           </p>
 
           <p className="text-sm text-zinc-400 mb-5">
-            Images are compressed before saving. First image is the main product image.
+            Images upload to UploadThing and save as public URLs for Stripe
+            checkout.
           </p>
 
           <label className="inline-flex cursor-pointer rounded-2xl bg-jungle-600 hover:bg-jungle-500 px-6 py-3 font-semibold transition">
@@ -506,7 +487,7 @@ export default function ProductForm({
               </div>
 
               <p className="text-xs text-zinc-400 mt-2">
-                Processing images... {uploadProgress}%
+                Uploading images... {uploadProgress}%
               </p>
             </div>
           )}
