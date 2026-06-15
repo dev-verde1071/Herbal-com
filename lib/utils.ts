@@ -29,6 +29,7 @@ export const PRODUCT_CATEGORIES = [
   { value: "packages",   label: "Herbal Packages" },
   { value: "foods",      label: "Foods & Superfoods" },
   { value: "duckflower", label: "Duck Flower" },
+  { value: "remedies",   label: "Natural Remedies" },
 ] as const;
 
 export const CATEGORY_LABELS: Record<string, string> = {
@@ -38,9 +39,10 @@ export const CATEGORY_LABELS: Record<string, string> = {
   oils:       "Oils",
   mushrooms:  "Mushrooms",
   hairskin:   "Hair & Skin Care",
-  packages:   "Herbal Package",
+  packages:   "Herbal Packages",
   foods:      "Foods & Superfoods",
   duckflower: "Duck Flower",
+  remedies:   "Natural Remedies",
 };
 
 export const CATEGORY_ICONS: Record<string, string> = {
@@ -53,4 +55,5 @@ export const CATEGORY_ICONS: Record<string, string> = {
   packages:   "📦",
   foods:      "🥥",
   duckflower: "🌺",
+  remedies:   "🩺",
 };
