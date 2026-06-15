@@ -47,6 +47,14 @@ function getRetreatCheckoutPrice(retreat: {
   return retreat.price;
 }
 
+function getStripeImages(image?: string | null) {
+  if (!image) return undefined;
+
+  if (!image.startsWith("http")) return undefined;
+
+  return [image];
+}
+
 export async function POST(req: Request) {
   try {
     if (!stripe) {
@@ -118,6 +126,7 @@ export async function POST(req: Request) {
           }
 
           const price = getRetreatCheckoutPrice(item.retreat);
+          const image = item.retreat.images?.[0] || null;
 
           return {
             price_data: {
@@ -126,6 +135,7 @@ export async function POST(req: Request) {
               product_data: {
                 name: item.retreat.name,
                 description: item.retreat.description || undefined,
+                images: getStripeImages(image),
               },
             },
             quantity: item.qty,
@@ -146,6 +156,8 @@ export async function POST(req: Request) {
           );
         }
 
+        const image = item.variant.images?.[0] || item.product.images?.[0] || null;
+
         return {
           price_data: {
             currency: "usd",
@@ -153,6 +165,7 @@ export async function POST(req: Request) {
             product_data: {
               name: `${item.product.name} - ${item.variant.label}`,
               description: item.product.description || undefined,
+              images: getStripeImages(image),
             },
           },
           quantity: item.qty,
@@ -212,6 +225,8 @@ export async function POST(req: Request) {
         );
       }
 
+      const image = variant.images?.[0] || variant.product.images?.[0] || null;
+
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -229,6 +244,7 @@ export async function POST(req: Request) {
               product_data: {
                 name: `${variant.product.name} - ${variant.label}`,
                 description: variant.product.description || undefined,
+                images: getStripeImages(image),
               },
             },
             quantity: 1,
@@ -269,6 +285,7 @@ export async function POST(req: Request) {
       }
 
       const checkoutPrice = getRetreatCheckoutPrice(retreat);
+      const image = retreat.images?.[0] || null;
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
@@ -283,6 +300,7 @@ export async function POST(req: Request) {
               product_data: {
                 name: retreat.name,
                 description: retreat.description || undefined,
+                images: getStripeImages(image),
               },
             },
             quantity: 1,
