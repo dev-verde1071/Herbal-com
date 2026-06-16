@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, SlidersHorizontal, X } from "lucide-react";
 import { PRODUCT_CATEGORIES } from "@/lib/utils";
@@ -18,15 +18,26 @@ export default function ProductSidebar() {
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
+  const currentQueryString = params.toString();
+
   const [category, setCategory] = useState(params.get("category") || "");
   const [minPrice, setMinPrice] = useState(Number(params.get("min")) || 0);
   const [maxPrice, setMaxPrice] = useState(Number(params.get("max")) || 500);
   const [sort, setSort] = useState(params.get("sort") || "");
   const [stock, setStock] = useState(params.get("stock") || "");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [manualLoading, setManualLoading] = useState(false);
 
-  const isLoading = isPending || loading;
+  const isLoading = isPending || manualLoading;
+
+  useEffect(() => {
+    setCategory(params.get("category") || "");
+    setMinPrice(Number(params.get("min")) || 0);
+    setMaxPrice(Number(params.get("max")) || 500);
+    setSort(params.get("sort") || "");
+    setStock(params.get("stock") || "");
+    setManualLoading(false);
+  }, [currentQueryString, params]);
 
   function buildProductUrl(filters: FilterState) {
     const q = new URLSearchParams();
@@ -37,16 +48,16 @@ export default function ProductSidebar() {
     if (filters.sort) q.set("sort", filters.sort);
     if (filters.stock) q.set("stock", filters.stock);
 
-    q.set("page", "1");
-
     const queryString = q.toString();
 
     return queryString ? `/products?${queryString}` : "/products";
   }
 
-  function apply() {
-    setLoading(true);
+  function getCurrentProductsUrl() {
+    return currentQueryString ? `/products?${currentQueryString}` : "/products";
+  }
 
+  function apply() {
     const nextFilters: FilterState = {
       category,
       minPrice,
@@ -55,10 +66,21 @@ export default function ProductSidebar() {
       stock,
     };
 
+    const targetUrl = buildProductUrl(nextFilters);
+    const currentUrl = getCurrentProductsUrl();
+
+    setManualLoading(true);
+
     startTransition(() => {
-      router.push(buildProductUrl(nextFilters));
+      router.push(targetUrl);
       router.refresh();
     });
+
+    if (targetUrl === currentUrl) {
+      window.setTimeout(() => {
+        setManualLoading(false);
+      }, 700);
+    }
 
     setMobileOpen(false);
   }
@@ -69,12 +91,18 @@ export default function ProductSidebar() {
     setMaxPrice(500);
     setSort("");
     setStock("");
-    setLoading(true);
+    setManualLoading(true);
 
     startTransition(() => {
       router.push("/products");
       router.refresh();
     });
+
+    if (getCurrentProductsUrl() === "/products") {
+      window.setTimeout(() => {
+        setManualLoading(false);
+      }, 700);
+    }
 
     setMobileOpen(false);
   }
