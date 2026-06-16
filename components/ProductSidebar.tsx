@@ -24,6 +24,9 @@ export default function ProductSidebar() {
   const [sort, setSort] = useState(params.get("sort") || "");
   const [stock, setStock] = useState(params.get("stock") || "");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const isLoading = isPending || loading;
 
   function buildProductUrl(filters: FilterState) {
     const q = new URLSearchParams();
@@ -34,28 +37,29 @@ export default function ProductSidebar() {
     if (filters.sort) q.set("sort", filters.sort);
     if (filters.stock) q.set("stock", filters.stock);
 
+    q.set("page", "1");
+
     const queryString = q.toString();
 
     return queryString ? `/products?${queryString}` : "/products";
   }
 
-  function pushFilters(overrides: Partial<FilterState> = {}) {
+  function apply() {
+    setLoading(true);
+
     const nextFilters: FilterState = {
       category,
       minPrice,
       maxPrice,
       sort,
       stock,
-      ...overrides,
     };
 
     startTransition(() => {
       router.push(buildProductUrl(nextFilters));
+      router.refresh();
     });
-  }
 
-  function apply() {
-    pushFilters();
     setMobileOpen(false);
   }
 
@@ -65,29 +69,13 @@ export default function ProductSidebar() {
     setMaxPrice(500);
     setSort("");
     setStock("");
+    setLoading(true);
 
     startTransition(() => {
       router.push("/products");
+      router.refresh();
     });
 
-    setMobileOpen(false);
-  }
-
-  function selectCategory(value: string) {
-    setCategory(value);
-    pushFilters({ category: value });
-    setMobileOpen(false);
-  }
-
-  function selectSort(value: string) {
-    setSort(value);
-    pushFilters({ sort: value });
-    setMobileOpen(false);
-  }
-
-  function selectStock(value: string) {
-    setStock(value);
-    pushFilters({ stock: value });
     setMobileOpen(false);
   }
 
@@ -101,7 +89,7 @@ export default function ProductSidebar() {
 
   const body = (
     <div className="relative flex flex-col gap-6">
-      {isPending && (
+      {isLoading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/50 backdrop-blur-sm">
           <div className="flex items-center gap-2 rounded-full border border-jungle-700/60 bg-bark-900 px-4 py-2 text-sm text-jungle-200">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -110,7 +98,7 @@ export default function ProductSidebar() {
         </div>
       )}
 
-      <div className={isPending ? "pointer-events-none opacity-60" : ""}>
+      <div className={isLoading ? "pointer-events-none opacity-60" : ""}>
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -122,7 +110,7 @@ export default function ProductSidebar() {
               <button
                 type="button"
                 onClick={clear}
-                disabled={isPending}
+                disabled={isLoading}
                 className="text-xs text-terra-300 hover:text-terra-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <X className="w-3 h-3" /> Clear all
@@ -141,8 +129,8 @@ export default function ProductSidebar() {
                   <button
                     key={c.value}
                     type="button"
-                    onClick={() => selectCategory(c.value)}
-                    disabled={isPending}
+                    onClick={() => setCategory(c.value)}
+                    disabled={isLoading}
                     className={`text-left text-sm px-3 py-2 rounded-lg transition disabled:cursor-not-allowed ${
                       category === c.value
                         ? "bg-jungle-700 text-white font-medium"
@@ -176,7 +164,7 @@ export default function ProductSidebar() {
                 max={500}
                 step={5}
                 value={minPrice}
-                disabled={isPending}
+                disabled={isLoading}
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   setMinPrice(Math.min(value, maxPrice));
@@ -189,7 +177,7 @@ export default function ProductSidebar() {
                 max={500}
                 step={5}
                 value={maxPrice}
-                disabled={isPending}
+                disabled={isLoading}
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   setMaxPrice(Math.max(value, minPrice));
@@ -218,8 +206,8 @@ export default function ProductSidebar() {
                 <button
                   key={s.value}
                   type="button"
-                  onClick={() => selectSort(s.value)}
-                  disabled={isPending}
+                  onClick={() => setSort(s.value)}
+                  disabled={isLoading}
                   className={`text-left text-sm px-3 py-2 rounded-lg transition disabled:cursor-not-allowed ${
                     sort === s.value
                       ? "bg-jungle-700 text-white font-medium"
@@ -245,8 +233,8 @@ export default function ProductSidebar() {
                 <button
                   key={s.value}
                   type="button"
-                  onClick={() => selectStock(s.value)}
-                  disabled={isPending}
+                  onClick={() => setStock(s.value)}
+                  disabled={isLoading}
                   className={`text-left text-sm px-3 py-2 rounded-lg transition disabled:cursor-not-allowed ${
                     stock === s.value
                       ? "bg-jungle-700 text-white font-medium"
@@ -262,11 +250,11 @@ export default function ProductSidebar() {
           <button
             type="button"
             onClick={apply}
-            disabled={isPending}
+            disabled={isLoading}
             className="w-full bg-jungle-600 hover:bg-jungle-500 disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2"
           >
-            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isPending ? "Loading..." : "Apply Filters"}
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isLoading ? "Loading..." : "Apply Filters"}
           </button>
         </div>
       </div>
@@ -279,7 +267,7 @@ export default function ProductSidebar() {
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          disabled={isPending}
+          disabled={isLoading}
           className="flex items-center gap-2 text-sm font-semibold bg-jungle-900/60 border border-jungle-700/40 text-jungle-300 px-4 py-2.5 rounded-xl disabled:opacity-70 disabled:cursor-not-allowed"
         >
           <SlidersHorizontal className="w-4 h-4" />
