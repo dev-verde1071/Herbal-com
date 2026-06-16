@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { Suspense } from "react";
 import { db } from "@/lib/db";
 import ProductCard from "@/components/ProductCard";
@@ -11,7 +12,10 @@ type SP = {
   max?: string;
   sort?: string;
   stock?: string;
+  page?: string;
 };
+
+const PRODUCTS_PER_PAGE = 12;
 
 function getLowestPrice(product: any) {
   const prices = product.variants
@@ -19,6 +23,21 @@ function getLowestPrice(product: any) {
     .filter((price: number) => price > 0);
 
   return prices.length ? Math.min(...prices) : 0;
+}
+
+function buildPageUrl(params: SP, page: number) {
+  const q = new URLSearchParams();
+
+  if (params.category) q.set("category", params.category);
+  if (params.min) q.set("min", params.min);
+  if (params.max) q.set("max", params.max);
+  if (params.sort) q.set("sort", params.sort);
+  if (params.stock) q.set("stock", params.stock);
+  if (page > 1) q.set("page", String(page));
+
+  const queryString = q.toString();
+
+  return queryString ? `/products?${queryString}` : "/products";
 }
 
 async function getProducts(params: SP) {
@@ -93,6 +112,24 @@ export default async function ProductsPage({
   const params = await searchParams;
   const products = await getProducts(params);
 
+  const totalProducts = products.length;
+  const totalPages = Math.max(1, Math.ceil(totalProducts / PRODUCTS_PER_PAGE));
+  const requestedPage = Number(params.page || 1);
+  const currentPage = Math.min(
+    Math.max(Number.isFinite(requestedPage) ? requestedPage : 1, 1),
+    totalPages
+  );
+
+  const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
+  const endIndex = startIndex + PRODUCTS_PER_PAGE;
+  const visibleProducts = products.slice(startIndex, endIndex);
+
+  const firstVisible = totalProducts === 0 ? 0 : startIndex + 1;
+  const lastVisible = Math.min(endIndex, totalProducts);
+
+  const previousPageUrl = buildPageUrl(params, currentPage - 1);
+  const nextPageUrl = buildPageUrl(params, currentPage + 1);
+
   return (
     <div className="min-h-screen py-12 px-6">
       <div className="max-w-7xl mx-auto">
@@ -109,7 +146,13 @@ export default async function ProductsPage({
           </h1>
 
           <p className="text-gray-500 mt-2 text-sm">
-            {products.length} product{products.length !== 1 ? "s" : ""} found
+            {totalProducts} product{totalProducts !== 1 ? "s" : ""} found
+            {totalProducts > 0 && (
+              <>
+                {" "}
+                · Showing {firstVisible}-{lastVisible}
+              </>
+            )}
           </p>
         </div>
 
@@ -119,7 +162,7 @@ export default async function ProductsPage({
           </Suspense>
 
           <div className="flex-1 min-w-0">
-            {products.length === 0 ? (
+            {visibleProducts.length === 0 ? (
               <div className="glass rounded-2xl p-16 text-center">
                 <span className="text-5xl mb-4 block">🌿</span>
 
@@ -133,11 +176,56 @@ export default async function ProductsPage({
                 </a>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {visibleProducts.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-jungle-900/60 bg-bark-800/40 p-4">
+                    <p className="text-sm text-zinc-400">
+                      Page{" "}
+                      <span className="text-white font-semibold">
+                        {currentPage}
+                      </span>{" "}
+                      of{" "}
+                      <span className="text-white font-semibold">
+                        {totalPages}
+                      </span>
+                    </p>
+
+                    <div className="flex items-center gap-3">
+                      {currentPage > 1 ? (
+                        <Link
+                          href={previousPageUrl}
+                          className="rounded-xl border border-jungle-700/60 px-5 py-2 text-sm font-semibold text-jungle-200 hover:bg-jungle-900/60 transition"
+                        >
+                          ← Previous Page
+                        </Link>
+                      ) : (
+                        <span className="rounded-xl border border-zinc-800 px-5 py-2 text-sm font-semibold text-zinc-600 cursor-not-allowed">
+                          ← Previous Page
+                        </span>
+                      )}
+
+                      {currentPage < totalPages ? (
+                        <Link
+                          href={nextPageUrl}
+                          className="rounded-xl bg-jungle-600 hover:bg-jungle-500 px-5 py-2 text-sm font-semibold text-white transition"
+                        >
+                          Next Page →
+                        </Link>
+                      ) : (
+                        <span className="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-semibold text-zinc-500 cursor-not-allowed">
+                          Next Page →
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
