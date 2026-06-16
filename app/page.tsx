@@ -46,15 +46,15 @@ export default async function HomePage() {
           </p>
 
           <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-bold leading-tight mb-8">
-            Rare Herbs.
+            Rare Herbs
             <br />
-            <span className="gold-shimmer">Real Communities.</span>
+            <span className="gold-shimmer">Real Communities</span>
           </h1>
 
           <p className="max-w-2xl mx-auto text-lg md:text-xl text-zinc-300 leading-relaxed mb-10">
             Discover ethically sourced herbs, sea moss, stingless bee honey,
             natural oils, and wellness retreats connected directly to indigenous
-            and local communities.
+            and local communities
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
