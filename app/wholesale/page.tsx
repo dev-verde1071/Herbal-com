@@ -4,6 +4,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import WholesaleAccessPanel from "./WholesaleAccessPanel";
+import WholesaleFeaturedProducts from "./WholesaleFeaturedProducts";
 
 export default async function WholesalePage() {
   const { userId } = await auth();
@@ -13,23 +14,24 @@ export default async function WholesalePage() {
     const email = user?.emailAddresses?.[0]?.emailAddress;
 
     if (email) {
-      const approvedApplication = await db.wholesaleApplication.findFirst({
-        where: {
-          OR: [
-            {
-              userId,
-            },
-            {
-              email,
-            },
-          ],
-          status: "APPROVED",
-          archived: false,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+      const approvedApplication =
+        await db.wholesaleApplication.findFirst({
+          where: {
+            OR: [
+              {
+                userId,
+              },
+              {
+                email,
+              },
+            ],
+            status: "APPROVED",
+            archived: false,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
 
       if (approvedApplication) {
         if (!approvedApplication.userId) {
@@ -48,27 +50,45 @@ export default async function WholesalePage() {
     }
   }
 
+  const featuredProducts = await db.product.findMany({
+    where: {
+      type: "WHOLESALE",
+      featured: true,
+    },
+    include: {
+      variants: {
+        orderBy: {
+          price: "asc",
+        },
+      },
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+    take: 6,
+  });
+
   return (
-    <div className="min-h-screen py-16 px-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
+    <div className="min-h-screen px-6 py-16">
+      <div className="mx-auto max-w-6xl">
+        <div className="grid items-start gap-12 lg:grid-cols-2">
           <div>
-            <p className="uppercase tracking-[0.3em] text-jungle-300 text-xs mb-4">
+            <p className="mb-4 text-xs uppercase tracking-[0.3em] text-jungle-300">
               Wholesale Program
             </p>
 
-            <h1 className="font-display text-5xl md:text-6xl leading-tight mb-6">
+            <h1 className="mb-6 font-display text-5xl leading-tight md:text-6xl">
               Bulk Herbal Partnerships
             </h1>
 
-            <p className="text-zinc-300 leading-relaxed text-lg mb-10">
+            <p className="mb-10 text-lg leading-relaxed text-zinc-300">
               Apply for wholesale access to premium herbal products, sea moss,
               stingless bee honey, oils, and wellness goods sourced directly
               from trusted communities.
             </p>
 
-            <div className="glass rounded-3xl p-8 border border-jungle-900/60 mb-6">
-              <h2 className="text-xl font-semibold text-jungle-300 mb-5">
+            <div className="glass mb-6 rounded-3xl border border-jungle-900/60 p-8">
+              <h2 className="mb-5 text-xl font-semibold text-jungle-300">
                 Wholesale Benefits
               </h2>
 
@@ -81,8 +101,8 @@ export default async function WholesalePage() {
               </div>
             </div>
 
-            <div className="glass rounded-3xl p-8 border border-jungle-900/60">
-              <h2 className="text-xl font-semibold text-jungle-300 mb-5">
+            <div className="glass rounded-3xl border border-jungle-900/60 p-8">
+              <h2 className="mb-5 text-xl font-semibold text-jungle-300">
                 How It Works
               </h2>
 
@@ -96,7 +116,13 @@ export default async function WholesalePage() {
             </div>
           </div>
 
-          <WholesaleAccessPanel />
+          <div className="space-y-8">
+            <WholesaleAccessPanel />
+
+            <WholesaleFeaturedProducts
+              products={featuredProducts as any[]}
+            />
+          </div>
         </div>
       </div>
     </div>
